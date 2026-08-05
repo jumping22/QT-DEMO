@@ -65,5 +65,12 @@ int main(int argc, char *argv[])
              << (again == QByteArray(reinterpret_cast<const char *>(kTestPayload),
                                      kTestPayloadLen));
 
+    // QByteArray -> 字符串数组
+    const QStringList fields = KvSerializer::toStringList(again);
+    qDebug() << "==== toStringList ====";
+    for (int i = 0; i < fields.size(); ++i) {
+        qDebug().nospace() << "[" << i << "] " << qPrintable(fields.at(i));
+    }
+
     return 0;
 }

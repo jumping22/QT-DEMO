@@ -41,7 +41,8 @@ if (s.deserialize(buf, sizeof(buf))) {
 }
 
 s.setValue("weight", "70");
-QByteArray out = s.serialize();       // 再序列化
+QByteArray out = s.serialize();                 // 再序列化
+QStringList arr = KvSerializer::toStringList(out); // -> ["dataType:0", "name:...", ...]
 ```
 
 ## 编译（板端 / 交叉编译）

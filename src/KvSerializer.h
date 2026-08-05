@@ -43,6 +43,19 @@ public:
      */
     QByteArray serialize(bool appendEndMark = false) const;
 
+    /**
+     * 将序列化结果 QByteArray 转为字符串数组（按 ';' 拆分为各字段）
+     * 例："dataType:0;name:张明华" -> ["dataType:0", "name:张明华"]
+     * 会去除可选结束标记 '/'，并跳过空字段
+     */
+    static QStringList toStringList(const QByteArray &serialized);
+
+    /**
+     * 将当前对象先序列化，再转为字符串数组
+     * @param appendEndMark 序列化时是否追加 '/'（转数组前仍会去掉）
+     */
+    QStringList toStringList(bool appendEndMark = false) const;
+
     /** 设置 / 获取字段 */
     void setValue(const QString &key, const QString &value);
     QString value(const QString &key, const QString &defaultValue = QString()) const;

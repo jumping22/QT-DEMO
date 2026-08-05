@@ -56,6 +56,30 @@ QByteArray KvSerializer::serialize(bool appendEndMark) const
     return out;
 }
 
+QStringList KvSerializer::toStringList(const QByteArray &serialized)
+{
+    QStringList result;
+    const QByteArray raw = stripEndMark(serialized);
+    if (raw.isEmpty()) {
+        return result;
+    }
+
+    const QList<QByteArray> parts = raw.split(';');
+    for (int i = 0; i < parts.size(); ++i) {
+        const QByteArray part = parts.at(i).trimmed();
+        if (part.isEmpty()) {
+            continue;
+        }
+        result.append(QString::fromUtf8(part.constData(), part.size()));
+    }
+    return result;
+}
+
+QStringList KvSerializer::toStringList(bool appendEndMark) const
+{
+    return toStringList(serialize(appendEndMark));
+}
+
 void KvSerializer::setValue(const QString &key, const QString &value)
 {
     if (key.isEmpty()) {
