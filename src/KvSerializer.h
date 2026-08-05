@@ -1,6 +1,8 @@
 #ifndef KVSERIALIZER_H
 #define KVSERIALIZER_H
 
+#include <stdint.h>
+
 #include <QByteArray>
 #include <QMap>
 #include <QString>
@@ -55,6 +57,51 @@ public:
      * @param appendEndMark 序列化时是否追加 '/'（转数组前仍会去掉）
      */
     QStringList toStringList(bool appendEndMark = false) const;
+
+    /**
+     * 将序列化结果 QByteArray 拷贝为 uint8_t 字符串数组（调用方提供缓冲区）
+     * @param serialized 序列化得到的 QByteArray
+     * @param outBuf     输出缓冲区；可为 NULL，仅查询所需长度
+     * @param bufSize    outBuf 容量（字节）
+     * @param outLen     实际数据长度（不含结尾 '\\0'）；可为 NULL
+     * @param nullTerminate 是否在末尾额外写入 '\\0'（需多预留 1 字节）
+     * @return 成功返回 true；缓冲区不足或参数非法返回 false
+     *
+     * 所需最小 bufSize：serialized.size() + (nullTerminate ? 1 : 0)
+     */
+    static bool toUint8Array(const QByteArray &serialized,
+                             uint8_t *outBuf,
+                             int bufSize,
+                             int *outLen = 0,
+                             bool nullTerminate = true);
+
+    /**
+     * 分配并返回 uint8_t 字符串数组（内容为序列化字节流）
+     * 调用方必须使用 delete[] 释放返回指针
+     * @param serialized 序列化得到的 QByteArray
+     * @param outLen     实际数据长度（不含结尾 '\\0'）；可为 NULL
+     * @param nullTerminate 是否在末尾追加 '\\0'
+     * @return 成功返回堆上数组；失败返回 NULL
+     */
+    static uint8_t *toUint8Array(const QByteArray &serialized,
+                                 int *outLen = 0,
+                                 bool nullTerminate = true);
+
+    /**
+     * 将当前对象序列化后写入调用方提供的 uint8_t 缓冲区
+     */
+    bool toUint8Array(uint8_t *outBuf,
+                      int bufSize,
+                      int *outLen = 0,
+                      bool appendEndMark = false,
+                      bool nullTerminate = true) const;
+
+    /**
+     * 将当前对象序列化后分配为 uint8_t 字符串数组（调用方 delete[]）
+     */
+    uint8_t *toUint8Array(int *outLen = 0,
+                          bool appendEndMark = false,
+                          bool nullTerminate = true) const;
 
     /** 设置 / 获取字段 */
     void setValue(const QString &key, const QString &value);

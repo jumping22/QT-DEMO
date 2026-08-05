@@ -1,5 +1,7 @@
 #include "KvSerializer.h"
 
+#include <string.h>
+
 KvSerializer::KvSerializer()
 {
 }
@@ -78,6 +80,67 @@ QStringList KvSerializer::toStringList(const QByteArray &serialized)
 QStringList KvSerializer::toStringList(bool appendEndMark) const
 {
     return toStringList(serialize(appendEndMark));
+}
+
+bool KvSerializer::toUint8Array(const QByteArray &serialized,
+                                uint8_t *outBuf,
+                                int bufSize,
+                                int *outLen,
+                                bool nullTerminate)
+{
+    const int dataLen = serialized.size();
+    const int need = dataLen + (nullTerminate ? 1 : 0);
+
+    if (outLen) {
+        *outLen = dataLen;
+    }
+
+    // 仅查询长度
+    if (outBuf == 0) {
+        return true;
+    }
+
+    if (bufSize < need) {
+        return false;
+    }
+
+    if (dataLen > 0) {
+        memcpy(outBuf, serialized.constData(), static_cast<size_t>(dataLen));
+    }
+    if (nullTerminate) {
+        outBuf[dataLen] = 0;
+    }
+    return true;
+}
+
+uint8_t *KvSerializer::toUint8Array(const QByteArray &serialized,
+                                    int *outLen,
+                                    bool nullTerminate)
+{
+    const int dataLen = serialized.size();
+    const int need = dataLen + (nullTerminate ? 1 : 0);
+    uint8_t *buf = new uint8_t[need];
+    if (!toUint8Array(serialized, buf, need, outLen, nullTerminate)) {
+        delete[] buf;
+        return 0;
+    }
+    return buf;
+}
+
+bool KvSerializer::toUint8Array(uint8_t *outBuf,
+                                int bufSize,
+                                int *outLen,
+                                bool appendEndMark,
+                                bool nullTerminate) const
+{
+    return toUint8Array(serialize(appendEndMark), outBuf, bufSize, outLen, nullTerminate);
+}
+
+uint8_t *KvSerializer::toUint8Array(int *outLen,
+                                    bool appendEndMark,
+                                    bool nullTerminate) const
+{
+    return toUint8Array(serialize(appendEndMark), outLen, nullTerminate);
 }
 
 void KvSerializer::setValue(const QString &key, const QString &value)

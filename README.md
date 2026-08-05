@@ -43,6 +43,16 @@ if (s.deserialize(buf, sizeof(buf))) {
 s.setValue("weight", "70");
 QByteArray out = s.serialize();                 // 再序列化
 QStringList arr = KvSerializer::toStringList(out); // -> ["dataType:0", "name:...", ...]
+
+// QByteArray -> uint8_t 字符串数组（堆分配，调用方 delete[]）
+int len = 0;
+uint8_t *u8 = KvSerializer::toUint8Array(out, &len, true);
+
+// 或写入调用方缓冲区
+uint8_t buf2[256];
+int n = 0;
+KvSerializer::toUint8Array(out, buf2, sizeof(buf2), &n, true);
+delete[] u8;
 ```
 
 ## 编译（板端 / 交叉编译）

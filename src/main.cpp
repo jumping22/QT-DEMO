@@ -2,6 +2,9 @@
 #include <QDebug>
 #include <QTextCodec>
 
+#include <stdint.h>
+#include <string.h>
+
 #include "KvSerializer.h"
 
 /**
@@ -65,11 +68,42 @@ int main(int argc, char *argv[])
              << (again == QByteArray(reinterpret_cast<const char *>(kTestPayload),
                                      kTestPayloadLen));
 
-    // QByteArray -> 字符串数组
+    // QByteArray -> 字符串数组（按字段拆分）
     const QStringList fields = KvSerializer::toStringList(again);
     qDebug() << "==== toStringList ====";
     for (int i = 0; i < fields.size(); ++i) {
         qDebug().nospace() << "[" << i << "] " << qPrintable(fields.at(i));
+    }
+
+    // QByteArray -> uint8_t 字符串数组
+    int u8Len = 0;
+    uint8_t *u8Buf = KvSerializer::toUint8Array(again, &u8Len, true);
+    qDebug() << "==== toUint8Array ====";
+    qDebug() << "length:" << u8Len;
+    if (u8Buf) {
+        // QT4 无 toHex(separator)，手动拼十六进制便于对照
+        QByteArray hexDump;
+        for (int i = 0; i < u8Len; ++i) {
+            if (i > 0) {
+                hexDump.append(' ');
+            }
+            const char hexChars[] = "0123456789ABCDEF";
+            hexDump.append(hexChars[(u8Buf[i] >> 4) & 0x0F]);
+            hexDump.append(hexChars[u8Buf[i] & 0x0F]);
+        }
+        qDebug() << "hex   :" << hexDump.constData();
+        qDebug() << "text  :" << reinterpret_cast<const char *>(u8Buf);
+        qDebug() << "match original:"
+                 << (u8Len == kTestPayloadLen
+                     && memcmp(u8Buf, kTestPayload, static_cast<size_t>(u8Len)) == 0);
+
+        // 调用方提供缓冲区的写法
+        uint8_t stackBuf[256];
+        int copied = 0;
+        const bool ok = KvSerializer::toUint8Array(again, stackBuf, sizeof(stackBuf), &copied, true);
+        qDebug() << "stack copy ok:" << ok << "len:" << copied;
+
+        delete[] u8Buf;
     }
 
     return 0;
