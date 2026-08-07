@@ -6,8 +6,13 @@
 
 #include "RecordInfoSerializer.h"
 
-static void printRecord(const STR_RECORD_INFO &info)
+static void printReport(const STR_CIM_REPORT_INFO &report)
 {
+    qDebug() << "---- report (STR_CIM_REPORT_INFO) ----";
+    qDebug() << "dataType:" << report.dataType;
+
+    const STR_RECORD_INFO &info = report.record;
+
     qDebug() << "---- cm (STR_CONTRAST_INFO) ----";
     qDebug() << "cm.name   :" << info.cm.name;
     qDebug() << "cm.concent:" << info.cm.concent;
@@ -22,7 +27,7 @@ static void printRecord(const STR_RECORD_INFO &info)
     qDebug() << "patient.brithday :" << info.patient.brithday;
     qDebug() << "patient.height   :" << info.patient.height;
 
-    qDebug() << "---- record ----";
+    qDebug() << "---- record (STR_RECORD_INFO) ----";
     qDebug() << "injector    :" << info.injector;
     qDebug() << "datetime    :" << info.datetime;
     qDebug() << "protocolName:" << info.protocolName;
@@ -47,6 +52,11 @@ static bool recordEquals(const STR_RECORD_INFO &a, const STR_RECORD_INFO &b)
         && a.method == b.method;
 }
 
+static bool reportEquals(const STR_CIM_REPORT_INFO &a, const STR_CIM_REPORT_INFO &b)
+{
+    return a.dataType == b.dataType && recordEquals(a.record, b.record);
+}
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
@@ -57,8 +67,11 @@ int main(int argc, char *argv[])
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
 #endif
 
-    // 构造 STR_RECORD_INFO 测试数据
-    STR_RECORD_INFO record;
+    // 构造 STR_CIM_REPORT_INFO 测试数据
+    STR_CIM_REPORT_INFO report;
+    report.dataType = 0;
+
+    STR_RECORD_INFO &record = report.record;
     record.cm.name = QString::fromUtf8("碘海醇");
     record.cm.concent = QLatin1String("350");
     record.cm.index = QLatin1String("A01");
@@ -76,17 +89,17 @@ int main(int argc, char *argv[])
     record.protocolName = QString::fromUtf8("胸部增强");
     record.method = 1;
 
-    qDebug() << "==== source STR_RECORD_INFO ====";
-    printRecord(record);
+    qDebug() << "==== source STR_CIM_REPORT_INFO ====";
+    printReport(report);
 
     // 序列化
-    const QByteArray packed = RecordInfoSerializer::serialize(record);
+    const QByteArray packed = RecordInfoSerializer::serialize(report);
     qDebug() << "==== serialize QByteArray ====";
     qDebug() << packed;
 
     // QByteArray -> uint8_t 字符串数组
     int u8Len = 0;
-    uint8_t *u8Buf = RecordInfoSerializer::toUint8Array(record, &u8Len, false, true);
+    uint8_t *u8Buf = RecordInfoSerializer::toUint8Array(report, &u8Len, false, true);
     qDebug() << "==== toUint8Array ====";
     qDebug() << "length:" << u8Len;
     if (u8Buf == 0) {
@@ -107,23 +120,23 @@ int main(int argc, char *argv[])
     qDebug() << "hex   :" << hexDump.constData();
 
     // 从 uint8_t 数组反序列化回结构体
-    STR_RECORD_INFO restored;
+    STR_CIM_REPORT_INFO restored;
     if (!RecordInfoSerializer::deserialize(u8Buf, u8Len, &restored)) {
         qWarning() << "deserialize failed";
         delete[] u8Buf;
         return 1;
     }
 
-    qDebug() << "==== deserialize STR_RECORD_INFO ====";
-    printRecord(restored);
-    qDebug() << "round-trip ok:" << recordEquals(record, restored);
+    qDebug() << "==== deserialize STR_CIM_REPORT_INFO ====";
+    printReport(restored);
+    qDebug() << "round-trip ok:" << reportEquals(report, restored);
 
     // 调用方缓冲区写法
     uint8_t stackBuf[512];
     int copied = 0;
-    const bool ok = RecordInfoSerializer::toUint8Array(record, stackBuf, sizeof(stackBuf), &copied);
+    const bool ok = RecordInfoSerializer::toUint8Array(report, stackBuf, sizeof(stackBuf), &copied);
     qDebug() << "stack copy ok:" << ok << "len:" << copied;
 
     delete[] u8Buf;
-    return recordEquals(record, restored) ? 0 : 2;
+    return reportEquals(report, restored) ? 0 : 2;
 }

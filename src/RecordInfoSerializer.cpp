@@ -2,10 +2,8 @@
 
 #include "KvSerializer.h"
 
-QByteArray RecordInfoSerializer::serialize(const STR_RECORD_INFO &info, bool appendEndMark)
+void RecordInfoSerializer::writeRecordFields(KvSerializer &s, const STR_RECORD_INFO &info)
 {
-    KvSerializer s;
-
     // STR_CONTRAST_INFO
     s.setValue(QLatin1String("cmName"), info.cm.name);
     s.setValue(QLatin1String("cmConcent"), info.cm.concent);
@@ -25,21 +23,10 @@ QByteArray RecordInfoSerializer::serialize(const STR_RECORD_INFO &info, bool app
     s.setValue(QLatin1String("datetime"), QString::number(info.datetime));
     s.setValue(QLatin1String("protocolName"), info.protocolName);
     s.setValue(QLatin1String("method"), QString::number(info.method));
-
-    return s.serialize(appendEndMark);
 }
 
-bool RecordInfoSerializer::deserialize(const QByteArray &data, STR_RECORD_INFO *out)
+void RecordInfoSerializer::readRecordFields(const KvSerializer &s, STR_RECORD_INFO *out)
 {
-    if (out == 0) {
-        return false;
-    }
-
-    KvSerializer s;
-    if (!s.deserialize(data)) {
-        return false;
-    }
-
     out->cm.name = s.value(QLatin1String("cmName"));
     out->cm.concent = s.value(QLatin1String("cmConcent"));
     out->cm.index = s.value(QLatin1String("cmIndex"));
@@ -56,7 +43,66 @@ bool RecordInfoSerializer::deserialize(const QByteArray &data, STR_RECORD_INFO *
     out->datetime = s.value(QLatin1String("datetime")).toInt();
     out->protocolName = s.value(QLatin1String("protocolName"));
     out->method = s.value(QLatin1String("method")).toInt();
+}
 
+QByteArray RecordInfoSerializer::serialize(const STR_CIM_REPORT_INFO &info, bool appendEndMark)
+{
+    KvSerializer s;
+    s.setValue(QLatin1String("dataType"), QString::number(info.dataType));
+    writeRecordFields(s, info.record);
+    return s.serialize(appendEndMark);
+}
+
+QByteArray RecordInfoSerializer::serialize(const STR_RECORD_INFO &info, bool appendEndMark)
+{
+    KvSerializer s;
+    writeRecordFields(s, info);
+    return s.serialize(appendEndMark);
+}
+
+bool RecordInfoSerializer::deserialize(const QByteArray &data, STR_CIM_REPORT_INFO *out)
+{
+    if (out == 0) {
+        return false;
+    }
+
+    KvSerializer s;
+    if (!s.deserialize(data)) {
+        return false;
+    }
+
+    out->dataType = s.value(QLatin1String("dataType")).toInt();
+    readRecordFields(s, &out->record);
+    return true;
+}
+
+bool RecordInfoSerializer::deserialize(const unsigned char *data, int length, STR_CIM_REPORT_INFO *out)
+{
+    if (data == 0 || out == 0) {
+        return false;
+    }
+
+    QByteArray raw;
+    if (length < 0) {
+        raw = QByteArray(reinterpret_cast<const char *>(data));
+    } else {
+        raw = QByteArray(reinterpret_cast<const char *>(data), length);
+    }
+    return deserialize(raw, out);
+}
+
+bool RecordInfoSerializer::deserialize(const QByteArray &data, STR_RECORD_INFO *out)
+{
+    if (out == 0) {
+        return false;
+    }
+
+    KvSerializer s;
+    if (!s.deserialize(data)) {
+        return false;
+    }
+
+    readRecordFields(s, out);
     return true;
 }
 
@@ -75,7 +121,7 @@ bool RecordInfoSerializer::deserialize(const unsigned char *data, int length, ST
     return deserialize(raw, out);
 }
 
-uint8_t *RecordInfoSerializer::toUint8Array(const STR_RECORD_INFO &info,
+uint8_t *RecordInfoSerializer::toUint8Array(const STR_CIM_REPORT_INFO &info,
                                             int *outLen,
                                             bool appendEndMark,
                                             bool nullTerminate)
@@ -83,7 +129,7 @@ uint8_t *RecordInfoSerializer::toUint8Array(const STR_RECORD_INFO &info,
     return KvSerializer::toUint8Array(serialize(info, appendEndMark), outLen, nullTerminate);
 }
 
-bool RecordInfoSerializer::toUint8Array(const STR_RECORD_INFO &info,
+bool RecordInfoSerializer::toUint8Array(const STR_CIM_REPORT_INFO &info,
                                         uint8_t *outBuf,
                                         int bufSize,
                                         int *outLen,

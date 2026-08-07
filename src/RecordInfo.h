@@ -31,4 +31,10 @@ typedef struct
     int method;
 } STR_RECORD_INFO;
 
+typedef struct
+{
+    int dataType;
+    STR_RECORD_INFO record;
+} STR_CIM_REPORT_INFO;
+
 #endif // RECORDINFO_H

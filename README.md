@@ -1,6 +1,6 @@
 # KvSerializer（QT 4.8.5 / RK3568）
 
-对 `unsigned char` / `uint8_t` 字节流做 Key-Value 序列化 / 反序列化，并支持 `STR_RECORD_INFO` 结构体编解码。
+对 `unsigned char` / `uint8_t` 字节流做 Key-Value 序列化 / 反序列化，并支持 `STR_CIM_REPORT_INFO` 结构体编解码。
 
 ## 协议
 
@@ -39,18 +39,23 @@ typedef struct {
     QString protocolName;
     int method;
 } STR_RECORD_INFO;
+
+typedef struct {
+    int dataType;
+    STR_RECORD_INFO record;
+} STR_CIM_REPORT_INFO;
 ```
 
-`STR_RECORD_INFO` 扁平化 key：
+扁平化 key：
 
-`cmName, cmConcent, cmIndex, patientName, patientID, checkID, exam, weight, brithday, height, injector, datetime, protocolName, method`
+`dataType, cmName, cmConcent, cmIndex, patientName, patientID, checkID, exam, weight, brithday, height, injector, datetime, protocolName, method`
 
 ## 文件
 
 ```text
 src/KvSerializer.h/.cpp           通用 key:value; 编解码
 src/RecordInfo.h                  业务结构体
-src/RecordInfoSerializer.h/.cpp   STR_RECORD_INFO 编解码
+src/RecordInfoSerializer.h/.cpp   STR_CIM_REPORT_INFO 编解码
 src/main.cpp                      结构体序列化测试
 kvserializer.pro                  qmake 工程（QT 4.8.5）
 ```
@@ -58,15 +63,16 @@ kvserializer.pro                  qmake 工程（QT 4.8.5）
 ## 用法
 
 ```cpp
-STR_RECORD_INFO record;
-// ... 填充字段 ...
+STR_CIM_REPORT_INFO report;
+report.dataType = 0;
+// ... 填充 report.record ...
 
-QByteArray out = RecordInfoSerializer::serialize(record);
+QByteArray out = RecordInfoSerializer::serialize(report);
 
 int len = 0;
-uint8_t *u8 = RecordInfoSerializer::toUint8Array(record, &len);
+uint8_t *u8 = RecordInfoSerializer::toUint8Array(report, &len);
 
-STR_RECORD_INFO restored;
+STR_CIM_REPORT_INFO restored;
 RecordInfoSerializer::deserialize(u8, len, &restored);
 delete[] u8;
 ```
