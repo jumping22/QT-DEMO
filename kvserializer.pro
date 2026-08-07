@@ -13,10 +13,13 @@ CONFIG   -= app_bundle
 
 SOURCES += \
     src/main.cpp \
-    src/KvSerializer.cpp
+    src/KvSerializer.cpp \
+    src/RecordInfoSerializer.cpp
 
 HEADERS += \
-    src/KvSerializer.h
+    src/KvSerializer.h \
+    src/RecordInfo.h \
+    src/RecordInfoSerializer.h
 
 # 保证源文件按 UTF-8 解析（中文测试数据）
 CODECFORSRC = UTF-8

@@ -3,108 +3,127 @@
 #include <QTextCodec>
 
 #include <stdint.h>
-#include <string.h>
 
-#include "KvSerializer.h"
+#include "RecordInfoSerializer.h"
 
-/**
- * 测试用例原始数据（十六进制）：
- * 64 61 74 61 54 79 70 65 3A 30 3B 6E 61 6D 65 3A E5 BC A0 E6 98 8E E5 8D 8E
- * 3B 49 64 3A 50 32 30 32 36 30 37 30 30 31 3B 65 78 61 6D 3A E8 83 B8 E9 83 A8
- * 43 54 41 3B 77 65 69 67 68 74 3A 37 30
- *
- * 对应明文：
- * dataType:0;name:张明华;Id:P202607001;exam:胸部CTA;weight:70
- */
-static const unsigned char kTestPayload[] = {
-    0x64, 0x61, 0x74, 0x61, 0x54, 0x79, 0x70, 0x65, 0x3A, 0x30, 0x3B,
-    0x6E, 0x61, 0x6D, 0x65, 0x3A, 0xE5, 0xBC, 0xA0, 0xE6, 0x98, 0x8E,
-    0xE5, 0x8D, 0x8E, 0x3B, 0x49, 0x64, 0x3A, 0x50, 0x32, 0x30, 0x32,
-    0x36, 0x30, 0x37, 0x30, 0x30, 0x31, 0x3B, 0x65, 0x78, 0x61, 0x6D,
-    0x3A, 0xE8, 0x83, 0xB8, 0xE9, 0x83, 0xA8, 0x43, 0x54, 0x41, 0x3B,
-    0x77, 0x65, 0x69, 0x67, 0x68, 0x74, 0x3A, 0x37, 0x30
-};
+static void printRecord(const STR_RECORD_INFO &info)
+{
+    qDebug() << "---- cm (STR_CONTRAST_INFO) ----";
+    qDebug() << "cm.name   :" << info.cm.name;
+    qDebug() << "cm.concent:" << info.cm.concent;
+    qDebug() << "cm.index  :" << info.cm.index;
 
-static const int kTestPayloadLen = static_cast<int>(sizeof(kTestPayload));
+    qDebug() << "---- patient (STR_PATIENT_INFO) ----";
+    qDebug() << "patient.name     :" << info.patient.name;
+    qDebug() << "patient.patientID:" << info.patient.patientID;
+    qDebug() << "patient.checkID  :" << info.patient.checkID;
+    qDebug() << "patient.exam     :" << info.patient.exam;
+    qDebug() << "patient.weight   :" << info.patient.weight;
+    qDebug() << "patient.brithday :" << info.patient.brithday;
+    qDebug() << "patient.height   :" << info.patient.height;
+
+    qDebug() << "---- record ----";
+    qDebug() << "injector    :" << info.injector;
+    qDebug() << "datetime    :" << info.datetime;
+    qDebug() << "protocolName:" << info.protocolName;
+    qDebug() << "method      :" << info.method;
+}
+
+static bool recordEquals(const STR_RECORD_INFO &a, const STR_RECORD_INFO &b)
+{
+    return a.cm.name == b.cm.name
+        && a.cm.concent == b.cm.concent
+        && a.cm.index == b.cm.index
+        && a.patient.name == b.patient.name
+        && a.patient.patientID == b.patient.patientID
+        && a.patient.checkID == b.patient.checkID
+        && a.patient.exam == b.patient.exam
+        && a.patient.weight == b.patient.weight
+        && a.patient.brithday == b.patient.brithday
+        && a.patient.height == b.patient.height
+        && a.injector == b.injector
+        && a.datetime == b.datetime
+        && a.protocolName == b.protocolName
+        && a.method == b.method;
+}
 
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
-    // QT4 控制台中文输出：按本地编码转换（RK3568 上常见为 UTF-8）
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 #if QT_VERSION < 0x050000
     QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
     QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
 #endif
 
-    KvSerializer serializer;
-    if (!serializer.deserialize(kTestPayload, kTestPayloadLen)) {
-        qWarning() << "deserialize failed";
-        return 1;
-    }
+    // 构造 STR_RECORD_INFO 测试数据
+    STR_RECORD_INFO record;
+    record.cm.name = QString::fromUtf8("碘海醇");
+    record.cm.concent = QLatin1String("350");
+    record.cm.index = QLatin1String("A01");
 
-    qDebug() << "==== deserialize result ====";
-    const QStringList keys = serializer.keys();
-    for (int i = 0; i < keys.size(); ++i) {
-        const QString &key = keys.at(i);
-        qDebug().nospace()
-            << qPrintable(key) << " = "
-            << qPrintable(serializer.value(key));
-    }
+    record.patient.name = QString::fromUtf8("张明华");
+    record.patient.patientID = QLatin1String("P202607001");
+    record.patient.checkID = QLatin1String("C20260701001");
+    record.patient.exam = QString::fromUtf8("胸部CTA");
+    record.patient.weight = 70;
+    record.patient.brithday = QLatin1String("19880520");
+    record.patient.height = 175;
 
-    qDebug() << "---- field access ----";
-    qDebug() << "dataType:" << serializer.value(QLatin1String("dataType"));
-    qDebug() << "name    :" << serializer.value(QLatin1String("name"));
-    qDebug() << "Id      :" << serializer.value(QLatin1String("Id"));
-    qDebug() << "exam    :" << serializer.value(QLatin1String("exam"));
-    qDebug() << "weight  :" << serializer.value(QLatin1String("weight"));
+    record.injector = QLatin1String("Injector-01");
+    record.datetime = 20260701; // YYYYMMDD，适配 int 范围
+    record.protocolName = QString::fromUtf8("胸部增强");
+    record.method = 1;
 
-    // 再序列化一轮，验证往返一致性
-    const QByteArray again = serializer.serialize();
-    qDebug() << "==== serialize again ====";
-    qDebug() << again;
-    qDebug() << "round-trip ok:"
-             << (again == QByteArray(reinterpret_cast<const char *>(kTestPayload),
-                                     kTestPayloadLen));
+    qDebug() << "==== source STR_RECORD_INFO ====";
+    printRecord(record);
 
-    // QByteArray -> 字符串数组（按字段拆分）
-    const QStringList fields = KvSerializer::toStringList(again);
-    qDebug() << "==== toStringList ====";
-    for (int i = 0; i < fields.size(); ++i) {
-        qDebug().nospace() << "[" << i << "] " << qPrintable(fields.at(i));
-    }
+    // 序列化
+    const QByteArray packed = RecordInfoSerializer::serialize(record);
+    qDebug() << "==== serialize QByteArray ====";
+    qDebug() << packed;
 
     // QByteArray -> uint8_t 字符串数组
     int u8Len = 0;
-    uint8_t *u8Buf = KvSerializer::toUint8Array(again, &u8Len, true);
+    uint8_t *u8Buf = RecordInfoSerializer::toUint8Array(record, &u8Len, false, true);
     qDebug() << "==== toUint8Array ====";
     qDebug() << "length:" << u8Len;
-    if (u8Buf) {
-        // QT4 无 toHex(separator)，手动拼十六进制便于对照
-        QByteArray hexDump;
-        for (int i = 0; i < u8Len; ++i) {
-            if (i > 0) {
-                hexDump.append(' ');
-            }
-            const char hexChars[] = "0123456789ABCDEF";
-            hexDump.append(hexChars[(u8Buf[i] >> 4) & 0x0F]);
-            hexDump.append(hexChars[u8Buf[i] & 0x0F]);
+    if (u8Buf == 0) {
+        qWarning() << "toUint8Array failed";
+        return 1;
+    }
+    qDebug() << "text  :" << reinterpret_cast<const char *>(u8Buf);
+
+    QByteArray hexDump;
+    for (int i = 0; i < u8Len; ++i) {
+        if (i > 0) {
+            hexDump.append(' ');
         }
-        qDebug() << "hex   :" << hexDump.constData();
-        qDebug() << "text  :" << reinterpret_cast<const char *>(u8Buf);
-        qDebug() << "match original:"
-                 << (u8Len == kTestPayloadLen
-                     && memcmp(u8Buf, kTestPayload, static_cast<size_t>(u8Len)) == 0);
+        const char hexChars[] = "0123456789ABCDEF";
+        hexDump.append(hexChars[(u8Buf[i] >> 4) & 0x0F]);
+        hexDump.append(hexChars[u8Buf[i] & 0x0F]);
+    }
+    qDebug() << "hex   :" << hexDump.constData();
 
-        // 调用方提供缓冲区的写法
-        uint8_t stackBuf[256];
-        int copied = 0;
-        const bool ok = KvSerializer::toUint8Array(again, stackBuf, sizeof(stackBuf), &copied, true);
-        qDebug() << "stack copy ok:" << ok << "len:" << copied;
-
+    // 从 uint8_t 数组反序列化回结构体
+    STR_RECORD_INFO restored;
+    if (!RecordInfoSerializer::deserialize(u8Buf, u8Len, &restored)) {
+        qWarning() << "deserialize failed";
         delete[] u8Buf;
+        return 1;
     }
 
-    return 0;
+    qDebug() << "==== deserialize STR_RECORD_INFO ====";
+    printRecord(restored);
+    qDebug() << "round-trip ok:" << recordEquals(record, restored);
+
+    // 调用方缓冲区写法
+    uint8_t stackBuf[512];
+    int copied = 0;
+    const bool ok = RecordInfoSerializer::toUint8Array(record, stackBuf, sizeof(stackBuf), &copied);
+    qDebug() << "stack copy ok:" << ok << "len:" << copied;
+
+    delete[] u8Buf;
+    return recordEquals(record, restored) ? 0 : 2;
 }
