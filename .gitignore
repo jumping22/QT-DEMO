@@ -1,0 +1,12 @@
+# qmake / build
+*.o
+*.stash
+.qmake.stash
+Makefile
+kvserializer_demo
+moc_*.cpp
+moc_*.h
+*.pro.user
+*.user
+build/
+tests/verify_protocol
