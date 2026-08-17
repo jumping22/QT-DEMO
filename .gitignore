@@ -1,0 +1,3 @@
+uart_loop_test
+*.o
+*.log
