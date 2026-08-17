@@ -39,6 +39,7 @@
 #define RX_DRAIN_MS       500
 #define MAGIC0            0x55
 #define MAGIC1            0xAA
+#define PROG_VERSION      "1.1.0-loopback"
 
 #pragma pack(push, 1)
 typedef struct {
@@ -194,12 +195,7 @@ static int open_uart(const char *dev, int baud)
         return -1;
     }
 
-    {
-        int flags = fcntl(fd, F_GETFL, 0);
-        if (flags >= 0)
-            fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-    }
-
+    /* Keep O_NONBLOCK: some RK UART drivers ignore VTIME and would block forever. */
     tcflush(fd, TCIOFLUSH);
     return fd;
 }
@@ -370,6 +366,13 @@ typedef struct {
     FILE *rx_fp;
 } rx_arg_t;
 
+static void set_fd_nonblock(int fd)
+{
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags >= 0)
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 static void *rx_thread(void *arg)
 {
     rx_arg_t *ra = (rx_arg_t *)arg;
@@ -392,11 +395,14 @@ static void *rx_thread(void *arg)
             if (errno == EINTR)
                 continue;
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                usleep(1000);
+                usleep(2000);
             } else {
                 perror("read");
                 break;
             }
+        } else {
+            /* EOF or zero-length with nonblock/VTIME */
+            usleep(2000);
         }
 
         if (!g_running && g_tx_done) {
@@ -413,7 +419,6 @@ static void *rx_thread(void *arg)
             if (elapsed_ms >= RX_DRAIN_MS)
                 break;
         } else if (!g_running && !g_tx_done) {
-            /* waiting for main to mark TX done */
             usleep(1000);
         }
     }
@@ -562,10 +567,12 @@ int main(int argc, char **argv)
     }
     rx_started = 1;
 
+    printf("uart_loop_test %s\n", PROG_VERSION);
     printf("UART loopback test: %s @ %d, packet=%d bytes, interval=%d ms\n",
            dev, baud, PACKET_SIZE, TX_INTERVAL_MS);
     printf("TX log: %s\nRX log: %s\nCtrl+C to stop; loss rate printed on exit.\n",
            tx_path, rx_path);
+    fflush(stdout);
 
     clock_gettime(CLOCK_MONOTONIC, &next);
 
@@ -607,13 +614,20 @@ int main(int argc, char **argv)
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
     }
 
-    /* Allow RX to drain remaining looped-back bytes before stopping. */
+    /*
+     * Stop TX, force UART non-blocking so RX cannot hang forever on
+     * drivers that ignore VTIME, drain briefly, then print loss rate.
+     */
+    printf("Stopping after %u TX packets, draining RX...\n", seq);
+    fflush(stdout);
     g_tx_done = 1;
     g_running = 0;
+    set_fd_nonblock(g_fd);
     pthread_join(tid, NULL);
     rx_started = 0;
 
     print_loss_report();
+    fflush(stdout);
     if (g_stats.tx_ok > 0) {
         uint64_t lost = 0;
         uint32_t i;
@@ -629,6 +643,7 @@ out_rx:
     if (rx_started) {
         g_tx_done = 1;
         g_running = 0;
+        set_fd_nonblock(g_fd);
         pthread_join(tid, NULL);
     }
     fclose(rx_fp);
