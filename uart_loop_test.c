@@ -36,8 +36,8 @@
 #define DEFAULT_INTERVAL_MS 100
 #define DEFAULT_DEV         "/dev/ttyS9"
 #define DEFAULT_BAUD        115200
-#define DEFAULT_TX_LOG      "uart_tx.log"
-#define DEFAULT_RX_LOG      "uart_rx.log"
+#define DEFAULT_TX_LOG      "/tmp/uart_tx.log"
+#define DEFAULT_RX_LOG      "/tmp/uart_rx.log"
 #define RX_DRAIN_MS         500
 #define MAX_PACKET_SIZE     8192
 #define MAGIC0              0x55

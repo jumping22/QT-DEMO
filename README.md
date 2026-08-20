@@ -29,7 +29,7 @@ make CROSS_COMPILE=aarch64-linux-gnu-
 
 # 完整参数示例
 ./uart_loop_test -d /dev/ttyS9 -b 115200 -s 250 -i 100 \
-  -t uart_tx.log -r uart_rx.log -n 100
+  -t /tmp/uart_tx.log -r /tmp/uart_rx.log -n 100
 ```
 
 | 参数 | 含义 | 默认 |
@@ -38,7 +38,7 @@ make CROSS_COMPILE=aarch64-linux-gnu-
 | `-b` | 波特率 | `115200` |
 | `-s` | 单包字节数 | `250`（最小约 25，最大 8192） |
 | `-i` | 发送间隔（毫秒） | `100` |
-| `-t` / `-r` | TX/RX 日志 | `uart_tx.log` / `uart_rx.log` |
+| `-t` / `-r` | TX/RX 日志 | `/tmp/uart_tx.log` / `/tmp/uart_rx.log` |
 | `-n` | 发送包数后退出（0 一直发） | `0` |
 
 需要串口设备访问权限（root 或加入 `dialout` 组）。Ctrl+C 停止；退出前会再等约 500ms 收完尾包，然后打印丢包统计。有丢包或坏帧时进程退出码为 2。启动时应看到版本 `1.2.0-loopback`。
