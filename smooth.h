@@ -25,6 +25,10 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
  *    instead of always planning to stop, so lag stays low. Horizon
  *    grows with sqrt(|error|) plus a floor, so plateaus stay quiet
  *    and long steps still ease in.
+ * 3) Sticky follow only unlocks on a reversal (periodic teeth) or a
+ *    true long-term flat. Mid-rise / mid-drop pauses do not lock a
+ *    staircase platform; a small cruise velocity keeps the S-curve
+ *    moving while the slow trend is still live.
  */
 typedef struct {
     int hold;
@@ -40,11 +44,20 @@ typedef struct {
     float v_lim;
     float settle_span;
     int settle_need;
+    float reverse_need;
+    int reverse_hold;
+    float slow_alpha;
+    float trend_eps;
+    float cruise;
     float y;
     float vel;
     float acc;
     float dest_prev;
     float dest_vel;
+    float x_slow;
+    float ext;
+    int move_dir;
+    int reverse_count;
     float hist[PEAKCUT_MAX_RADIUS];
     int hist_len;
     int hist_pos;

@@ -224,14 +224,25 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     /* Local range below this while close to y → leave sticky follow. */
     s->settle_span = 4.0f + 0.6f * sigma;
     s->settle_need = 6;
+    /*
+     * Unlock sticky on a reversal larger than a mid-move pause (~3)
+     * but smaller than a periodic tooth (~10–14).
+     */
+    s->reverse_need = 4.5f + 0.5f * sigma;
+    s->reverse_hold = 3;
+    s->slow_alpha = 0.018f;
+    s->trend_eps = 2.2f;
+    s->cruise = 0.18f;
 }
 
 /*
  * One sample of a 5th-order plan from (y, vel, acc) to
  * (dest, dest_vel, 0) in time T. dest_vel feedforward is what
  * cuts the lag of rest-to-rest min-jerk on live ramps.
+ * trend_live keeps a small cruise velocity so a mid-move pause
+ * does not brake the S-curve into a staircase platform.
  */
-static float follow_minjerk(PeakCutStream *s, float dest)
+static float follow_minjerk(PeakCutStream *s, float dest, int trend_live)
 {
     double y = (double)s->y;
     double v = (double)s->vel;
@@ -266,6 +277,13 @@ static float follow_minjerk(PeakCutStream *s, float dest)
             }
             if (dv < -s->v_lim) {
                 dv = -s->v_lim;
+            }
+        }
+        if (trend_live) {
+            if (s->move_dir > 0 && dv < s->cruise) {
+                dv = s->cruise;
+            } else if (s->move_dir < 0 && dv > -s->cruise) {
+                dv = -s->cruise;
             }
         }
         s->dest_vel = dv;
@@ -361,11 +379,14 @@ static float hist_range(const PeakCutStream *s)
     return mx - mn;
 }
 
-static void enter_sticky(PeakCutStream *s, float x)
+static void enter_sticky(PeakCutStream *s, float x, int move_dir)
 {
     s->sticky = 1;
     s->up_count = 0;
     s->dn_count = 0;
+    s->move_dir = move_dir;
+    s->ext = x;
+    s->reverse_count = 0;
     hist_reset(s);
     hist_push(s, x);
 }
@@ -377,6 +398,7 @@ float peakcut_stream_update(PeakCutStream *s, float x)
     float ad;
     int need;
     int confirmed;
+    int trend_live;
 
     if (!s->initialized) {
         s->initialized = 1;
@@ -385,6 +407,10 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         s->acc = 0.0f;
         s->dest_prev = x;
         s->dest_vel = 0.0f;
+        s->x_slow = x;
+        s->ext = x;
+        s->move_dir = 0;
+        s->reverse_count = 0;
         s->up_count = 0;
         s->dn_count = 0;
         s->sticky = 0;
@@ -394,24 +420,60 @@ float peakcut_stream_update(PeakCutStream *s, float x)
 
     d = x - s->y;
     ad = d >= 0.0f ? d : -d;
+    s->x_slow += s->slow_alpha * (x - s->x_slow);
+    trend_live = 0;
+    {
+        float td = x - s->x_slow;
+        if (td < 0.0f) {
+            td = -td;
+        }
+        if (td > s->trend_eps) {
+            trend_live = 1;
+        }
+    }
 
     /*
      * Sticky follow: after a real move is confirmed, keep tracking x
-     * until the recent window looks like a plateau (small range and
-     * close to y). That stops the deadband from staircase-catching
-     * on ramps: one confirm, then a continuous follow to the next flat.
+     * until a reversal (periodic tooth) or a true long-term flat.
+     * A same-direction pause in the middle of a rise/drop must not
+     * unlock, or min-jerk brakes into a staircase platform.
      */
     if (s->sticky) {
         gated = x;
         hist_push(s, x);
-        if (hist_range(s) <= s->settle_span && ad <= s->dead) {
+        if (s->move_dir > 0) {
+            if (x > s->ext) {
+                s->ext = x;
+                s->reverse_count = 0;
+            } else if ((s->ext - x) >= s->reverse_need) {
+                s->reverse_count++;
+            } else {
+                s->reverse_count = 0;
+            }
+        } else if (s->move_dir < 0) {
+            if (x < s->ext) {
+                s->ext = x;
+                s->reverse_count = 0;
+            } else if ((x - s->ext) >= s->reverse_need) {
+                s->reverse_count++;
+            } else {
+                s->reverse_count = 0;
+            }
+        }
+        if (hist_range(s) <= s->settle_span && ad <= s->dead && !trend_live) {
             s->settle_count++;
         } else {
             s->settle_count = 0;
         }
-        if (s->settle_count >= s->settle_need) {
+        if (s->reverse_count >= s->reverse_hold ||
+            s->settle_count >= s->settle_need) {
             s->sticky = 0;
+            s->move_dir = 0;
+            s->reverse_count = 0;
             hist_reset(s);
+            /* Freeze dest: do not chase the reversing tooth for one sample. */
+            gated = s->y + s->leak * d;
+            trend_live = 0;
         }
     } else {
         confirmed = 0;
@@ -433,11 +495,11 @@ float peakcut_stream_update(PeakCutStream *s, float x)
             gated = confirmed ? x : (s->y + s->leak * d);
         }
         if (confirmed) {
-            enter_sticky(s, x);
+            enter_sticky(s, x, (d > 0.0f) ? 1 : -1);
         }
     }
 
-    return follow_minjerk(s, gated);
+    return follow_minjerk(s, gated, trend_live && s->sticky);
 }
 
 static float alpha_from_cutoff(float cutoff, float dt)

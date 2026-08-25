@@ -606,6 +606,53 @@ static int self_test(void)
                 fails++;
             }
         }
+
+        /*
+         * A mid-ramp pause (same-direction dwell) must not lock a
+         * staircase platform. Old settle-on-quiet did: y went flat
+         * for ~25 samples around 73 while raw kept climbing.
+         */
+        peakcut_stream_init(&st, 16, 5.0f);
+        for (i = 0; i < 20; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        {
+            float prev;
+            int flat_run = 0;
+            int locked = 0;
+            for (i = 0; i < 50; i++) {
+                last = peakcut_stream_update(&st, 10.0f + (float)i * 1.3f);
+            }
+            prev = last;
+            for (i = 0; i < 35; i++) {
+                float yi = peakcut_stream_update(&st, 75.0f);
+                float dy = yi - prev;
+                if (dy < 0.0f) {
+                    dy = -dy;
+                }
+                if (yi > 55.0f && yi < 85.0f && dy < 0.030f) {
+                    flat_run++;
+                    if (flat_run >= 12) {
+                        locked = 1;
+                    }
+                } else {
+                    flat_run = 0;
+                }
+                prev = yi;
+                last = yi;
+            }
+            for (i = 0; i < 40; i++) {
+                last = peakcut_stream_update(&st, 75.0f + (float)i * 0.5f);
+            }
+            if (locked) {
+                fprintf(stderr, "FAIL: mid-ramp pause locked a platform\n");
+                fails++;
+            }
+            if (last < 78.0f) {
+                fprintf(stderr, "FAIL: rise after pause did not continue (%f)\n", last);
+                fails++;
+            }
+        }
     }
 
     if (fails == 0) {
