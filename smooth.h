@@ -49,6 +49,8 @@ typedef struct {
     float slow_alpha;
     float trend_eps;
     float cruise;
+    float ignore_up;
+    float ignore_dn;
     float y;
     float vel;
     float acc;

@@ -233,6 +233,8 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     s->slow_alpha = 0.018f;
     s->trend_eps = 2.2f;
     s->cruise = 0.18f;
+    s->ignore_up = 0.0f;
+    s->ignore_dn = 0.0f;
 }
 
 /*
@@ -399,6 +401,10 @@ float peakcut_stream_update(PeakCutStream *s, float x)
     int need;
     int confirmed;
     int trend_live;
+    float dead_up;
+    float dead_dn;
+    float step_up;
+    float step_dn;
 
     if (!s->initialized) {
         s->initialized = 1;
@@ -411,6 +417,8 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         s->ext = x;
         s->move_dir = 0;
         s->reverse_count = 0;
+        s->ignore_up = 0.0f;
+        s->ignore_dn = 0.0f;
         s->up_count = 0;
         s->dn_count = 0;
         s->sticky = 0;
@@ -467,6 +475,15 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         }
         if (s->reverse_count >= s->reverse_hold ||
             s->settle_count >= s->settle_need) {
+            /* After cutting a tooth, widen the same-direction deadband
+             * so the next period cannot 2-sample / hold-confirm as a new step. */
+            if (s->reverse_count >= s->reverse_hold) {
+                if (s->move_dir > 0 && s->ignore_up < s->big_up) {
+                    s->ignore_up = s->big_up;
+                } else if (s->move_dir < 0 && s->ignore_dn < s->big_dn) {
+                    s->ignore_dn = s->big_dn;
+                }
+            }
             s->sticky = 0;
             s->move_dir = 0;
             s->reverse_count = 0;
@@ -477,25 +494,46 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         }
     } else {
         confirmed = 0;
-        if (ad <= s->dead) {
+        dead_up = s->dead;
+        dead_dn = s->dead;
+        if (s->ignore_up > dead_up) {
+            dead_up = s->ignore_up;
+        }
+        if (s->ignore_dn > dead_dn) {
+            dead_dn = s->ignore_dn;
+        }
+        step_up = s->big_up;
+        step_dn = s->big_dn;
+        if (s->ignore_up + 1.0f > step_up) {
+            step_up = s->ignore_up + 1.0f;
+        }
+        if (s->ignore_dn + 1.0f > step_dn) {
+            step_dn = s->ignore_dn + 1.0f;
+        }
+        if ((d > 0.0f && ad <= dead_up) || (d <= 0.0f && ad <= dead_dn)) {
             s->up_count = 0;
             s->dn_count = 0;
             gated = s->y + s->leak * d;
         } else if (d > 0.0f) {
             s->up_count++;
             s->dn_count = 0;
-            need = (d >= s->big_up) ? 2 : s->hold;
+            need = (d >= step_up) ? 2 : s->hold;
             confirmed = s->up_count >= need;
             gated = confirmed ? x : (s->y + s->leak * d);
         } else {
             s->dn_count++;
             s->up_count = 0;
-            need = ((-d) >= s->big_dn) ? 2 : s->hold;
+            need = ((-d) >= step_dn) ? 2 : s->hold;
             confirmed = s->dn_count >= need;
             gated = confirmed ? x : (s->y + s->leak * d);
         }
         if (confirmed) {
             enter_sticky(s, x, (d > 0.0f) ? 1 : -1);
+            if (d > 0.0f) {
+                s->ignore_dn = 0.0f;
+            } else {
+                s->ignore_up = 0.0f;
+            }
         }
     }
 
