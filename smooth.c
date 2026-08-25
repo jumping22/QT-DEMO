@@ -159,44 +159,36 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma)
     return 0;
 }
 
-static void circ_push(float *buf, int cap, int *head, int *nfill, float v)
+/*
+ * Critically-damped lag (Unity SmoothDamp). dt = 1 sample.
+ * Smaller smooth_time → lower lag, slightly less rounding.
+ */
+static float smooth_damp(float current, float target, float *vel, float smooth_time)
 {
-    buf[*head] = v;
-    *head = (*head + 1) % cap;
-    if (*nfill < cap) {
-        (*nfill)++;
-    }
-}
+    const float dt = 1.0f;
+    float st;
+    float omega;
+    float x;
+    float expn;
+    float change;
+    float original;
+    float temp;
+    float out;
 
-static float circ_reduce(const float *buf, int cap, int head, int nfill, int win,
-                         int want_max)
-{
-    int n = nfill < win ? nfill : win;
-    int i;
-    int idx = head - 1;
-    float m;
-
-    if (n <= 0) {
-        return 0.0f;
+    st = smooth_time > 1e-4f ? smooth_time : 1e-4f;
+    omega = 2.0f / st;
+    x = omega * dt;
+    expn = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
+    original = target;
+    change = current - target;
+    temp = (*vel + omega * change) * dt;
+    *vel = (*vel - omega * temp) * expn;
+    out = target + (change + temp) * expn;
+    if ((original - current > 0.0f) == (out > original)) {
+        out = original;
+        *vel = 0.0f;
     }
-    if (idx < 0) {
-        idx += cap;
-    }
-    m = buf[idx];
-    for (i = 1; i < n; i++) {
-        idx--;
-        if (idx < 0) {
-            idx += cap;
-        }
-        if (want_max) {
-            if (buf[idx] > m) {
-                m = buf[idx];
-            }
-        } else if (buf[idx] < m) {
-            m = buf[idx];
-        }
-    }
-    return m;
+    return out;
 }
 
 void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
@@ -208,50 +200,60 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     if (radius > PEAKCUT_MAX_RADIUS) {
         radius = PEAKCUT_MAX_RADIUS;
     }
-    s->radius = radius;
-    s->win = 2 * radius + 1;
-    if (s->win > PEAKCUT_STREAM_MAX) {
-        s->win = PEAKCUT_STREAM_MAX;
-    }
-    if (sigma < 0.0f) {
-        sigma = 0.0f;
+    if (sigma < 0.5f) {
+        sigma = 0.5f;
     }
     if (sigma > PEAKCUT_MAX_SIGMA) {
         sigma = PEAKCUT_MAX_SIGMA;
     }
-    s->sigma = sigma;
-    if (sigma <= 0.0f) {
-        s->alpha = 1.0f;
-    } else {
-        s->alpha = 1.0f - expf(-1.0f / sigma);
-        if (s->alpha < 0.02f) {
-            s->alpha = 0.02f;
-        }
-        if (s->alpha > 1.0f) {
-            s->alpha = 1.0f;
-        }
+    s->hold = radius;
+    s->margin = PEAKCUT_DEFAULT_MARGIN;
+    /* Larger sigma → slower rise tracking, rounder curve. Drops stay fast. */
+    s->st_up = 1.4f + 0.55f * sigma;
+    s->st_dn = 0.85f + 0.08f * sigma;
+    if (s->st_dn < 0.7f) {
+        s->st_dn = 0.7f;
     }
 }
 
 float peakcut_stream_update(PeakCutStream *s, float x)
 {
-    float eroded;
-    float opened;
-
-    circ_push(s->raw, PEAKCUT_STREAM_MAX, &s->iraw, &s->nraw, x);
-    eroded = circ_reduce(s->raw, PEAKCUT_STREAM_MAX, s->iraw, s->nraw, s->win, 0);
-    circ_push(s->eroded, PEAKCUT_STREAM_MAX, &s->iero, &s->nero, eroded);
-    opened = circ_reduce(s->eroded, PEAKCUT_STREAM_MAX, s->iero, s->nero, s->win, 1);
+    float gated;
+    float st;
 
     if (!s->initialized) {
         s->initialized = 1;
-        s->z1 = opened;
-        s->z2 = opened;
-        return opened;
+        s->y = x;
+        s->vel = 0.0f;
+        s->high_count = 0;
+        return x;
     }
-    s->z1 += s->alpha * (opened - s->z1);
-    s->z2 += s->alpha * (s->z1 - s->z2);
-    return s->z2;
+
+    /*
+     * Direction + duration gate (no window):
+     *   x well above y for fewer than `hold` samples → spike, stay
+     *   same, but confirmed → real rise, catch up
+     *   x not well above y (includes drops) → track immediately
+     */
+    if (x > s->y + s->margin) {
+        s->high_count++;
+        if (s->high_count >= s->hold) {
+            gated = x;
+            /* Confirmed rise: faster than plateau, slower than a drop. */
+            st = 0.55f * s->st_up + 0.45f * s->st_dn;
+        } else {
+            /* Tiny leak so a long ramp does not freeze then jump. */
+            gated = s->y + 0.08f * (x - s->y);
+            st = s->st_up;
+        }
+    } else {
+        s->high_count = 0;
+        gated = x;
+        st = (x < s->y) ? s->st_dn : s->st_up;
+    }
+
+    s->y = smooth_damp(s->y, gated, &s->vel, st);
+    return s->y;
 }
 
 static float alpha_from_cutoff(float cutoff, float dt)

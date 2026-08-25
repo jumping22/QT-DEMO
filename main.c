@@ -28,14 +28,17 @@ static void usage(const char *argv0)
             "Usage: %s [options] [file]\n"
             "\n"
             "Real-time peak-cut smoother. Each incoming sample produces one\n"
-            "output immediately (no lookahead). Connecting the outputs yields\n"
-            "a spike-free smooth curve.\n"
+            "output immediately (no lookahead, O(1)). Connecting the outputs\n"
+            "yields a spike-free smooth curve with low lag on real drops.\n"
             "\n"
             "Options:\n"
             "  --method peakcut|oneeuro|aema|ema\n"
             "                              Default: peakcut (streaming)\n"
-            "  --radius R                  Opening radius (default: %d)\n"
-            "  --sigma S                   Smoothness of the output curve (default: %.1f)\n"
+            "  --radius R                  Spike hold in samples (default: %d).\n"
+            "                              Wider peaks need a larger R; confirmed\n"
+            "                              rises wait this many samples\n"
+            "  --sigma S                   Curve roundness (default: %.1f).\n"
+            "                              Larger is smoother; drops stay fast\n"
             "  --offline                   Batch peak-cut (uses future samples)\n"
             "  --live                      Read numbers from stdin as they arrive\n"
             "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
@@ -479,6 +482,18 @@ static int self_test(void)
         }
         if (last < 8.0f) {
             fprintf(stderr, "FAIL: stream ramp did not rise (%f)\n", last);
+            fails++;
+        }
+
+        peakcut_stream_init(&st, 7, 3.5f);
+        for (i = 0; i < 25; i++) {
+            last = peakcut_stream_update(&st, 80.0f);
+        }
+        last = peakcut_stream_update(&st, 50.0f);
+        last = peakcut_stream_update(&st, 40.0f);
+        last = peakcut_stream_update(&st, 30.0f);
+        if (last > 58.0f) {
+            fprintf(stderr, "FAIL: stream drop lag too large (%f)\n", last);
             fails++;
         }
     }

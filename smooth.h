@@ -3,46 +3,34 @@
 
 #include <stddef.h>
 
-/*
- * Real-time peak-cutting smoother.
- *
- * Streaming API: one output per input, no lookahead.
- * Offline API: centered opening + Gaussian (uses future samples).
- */
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define PEAKCUT_DEFAULT_RADIUS 8
-#define PEAKCUT_DEFAULT_SIGMA  4.0f
+#define PEAKCUT_DEFAULT_RADIUS 7
+#define PEAKCUT_DEFAULT_SIGMA  3.5f
 #define PEAKCUT_MAX_RADIUS     48
 #define PEAKCUT_MAX_SIGMA      16.0f
-#define PEAKCUT_STREAM_MAX     97  /* 2 * PEAKCUT_MAX_RADIUS + 1 */
+#define PEAKCUT_DEFAULT_MARGIN 3.0f
 
 /* Offline (uses future samples). y may alias x. 0 on success, -1 on error. */
 int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
 
 /*
- * Real-time peak-cut smoother: one output per input, no lookahead.
- * Causal opening cuts narrow spikes using the past window; a 2-pole
- * low-pass then makes successive outputs a smooth curve.
+ * Real-time smoother: one output per input, O(1), no lookahead, no buffers.
  *
- * Hot path: no malloc. Window scan is O(radius).
+ * Upward bursts shorter than `radius` samples are treated as spikes and
+ * ignored. Real drops and confirmed rises are tracked with an asymmetric
+ * SmoothDamp so successive outputs stay a smooth curve with low lag.
  */
 typedef struct {
-    int radius;
-    int win;
-    float sigma;
-    float alpha;
-    float raw[PEAKCUT_STREAM_MAX];
-    float eroded[PEAKCUT_STREAM_MAX];
-    int iraw;
-    int iero;
-    int nraw;
-    int nero;
-    float z1;
-    float z2;
+    int hold;
+    float margin;
+    float st_up;
+    float st_dn;
+    float y;
+    float vel;
+    int high_count;
     int initialized;
 } PeakCutStream;
 
