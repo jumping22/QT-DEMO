@@ -159,6 +159,101 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma)
     return 0;
 }
 
+static void circ_push(float *buf, int cap, int *head, int *nfill, float v)
+{
+    buf[*head] = v;
+    *head = (*head + 1) % cap;
+    if (*nfill < cap) {
+        (*nfill)++;
+    }
+}
+
+static float circ_reduce(const float *buf, int cap, int head, int nfill, int win,
+                         int want_max)
+{
+    int n = nfill < win ? nfill : win;
+    int i;
+    int idx = head - 1;
+    float m;
+
+    if (n <= 0) {
+        return 0.0f;
+    }
+    if (idx < 0) {
+        idx += cap;
+    }
+    m = buf[idx];
+    for (i = 1; i < n; i++) {
+        idx--;
+        if (idx < 0) {
+            idx += cap;
+        }
+        if (want_max) {
+            if (buf[idx] > m) {
+                m = buf[idx];
+            }
+        } else if (buf[idx] < m) {
+            m = buf[idx];
+        }
+    }
+    return m;
+}
+
+void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
+{
+    memset(s, 0, sizeof(*s));
+    if (radius < 1) {
+        radius = 1;
+    }
+    if (radius > PEAKCUT_MAX_RADIUS) {
+        radius = PEAKCUT_MAX_RADIUS;
+    }
+    s->radius = radius;
+    s->win = 2 * radius + 1;
+    if (s->win > PEAKCUT_STREAM_MAX) {
+        s->win = PEAKCUT_STREAM_MAX;
+    }
+    if (sigma < 0.0f) {
+        sigma = 0.0f;
+    }
+    if (sigma > PEAKCUT_MAX_SIGMA) {
+        sigma = PEAKCUT_MAX_SIGMA;
+    }
+    s->sigma = sigma;
+    if (sigma <= 0.0f) {
+        s->alpha = 1.0f;
+    } else {
+        s->alpha = 1.0f - expf(-1.0f / sigma);
+        if (s->alpha < 0.02f) {
+            s->alpha = 0.02f;
+        }
+        if (s->alpha > 1.0f) {
+            s->alpha = 1.0f;
+        }
+    }
+}
+
+float peakcut_stream_update(PeakCutStream *s, float x)
+{
+    float eroded;
+    float opened;
+
+    circ_push(s->raw, PEAKCUT_STREAM_MAX, &s->iraw, &s->nraw, x);
+    eroded = circ_reduce(s->raw, PEAKCUT_STREAM_MAX, s->iraw, s->nraw, s->win, 0);
+    circ_push(s->eroded, PEAKCUT_STREAM_MAX, &s->iero, &s->nero, eroded);
+    opened = circ_reduce(s->eroded, PEAKCUT_STREAM_MAX, s->iero, s->nero, s->win, 1);
+
+    if (!s->initialized) {
+        s->initialized = 1;
+        s->z1 = opened;
+        s->z2 = opened;
+        return opened;
+    }
+    s->z1 += s->alpha * (opened - s->z1);
+    s->z2 += s->alpha * (s->z1 - s->z2);
+    return s->z2;
+}
+
 static float alpha_from_cutoff(float cutoff, float dt)
 {
     float tau;

@@ -13,6 +13,7 @@ test: smooth
 	./smooth --self-test
 	./smooth --csv samples.txt > /tmp/smooth.csv
 	./smooth --svg /tmp/smooth.svg samples.txt >/dev/null
+	tr ',' ' ' < samples.txt | ./smooth --live --csv > /tmp/smooth_live.csv
 	@echo "ok"
 
 clean:

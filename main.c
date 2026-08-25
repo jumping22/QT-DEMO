@@ -27,16 +27,17 @@ static void usage(const char *argv0)
     fprintf(stderr,
             "Usage: %s [options] [file]\n"
             "\n"
-            "Peak-cutting smoother. Morphological opening knocks down narrow\n"
-            "spikes; a Gaussian pass then turns the result into a smooth curve.\n"
+            "Real-time peak-cut smoother. Each incoming sample produces one\n"
+            "output immediately (no lookahead). Connecting the outputs yields\n"
+            "a spike-free smooth curve.\n"
             "\n"
             "Options:\n"
             "  --method peakcut|oneeuro|aema|ema\n"
-            "                              Default: peakcut\n"
+            "                              Default: peakcut (streaming)\n"
             "  --radius R                  Opening radius (default: %d)\n"
-            "                              Larger R cuts wider peaks\n"
-            "  --sigma S                   Gaussian sigma (default: %.1f)\n"
-            "                              Larger S is smoother; 0 skips Gaussian\n"
+            "  --sigma S                   Smoothness of the output curve (default: %.1f)\n"
+            "  --offline                   Batch peak-cut (uses future samples)\n"
+            "  --live                      Read numbers from stdin as they arrive\n"
             "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
             "                              1-Euro parameters\n"
             "  --alpha A                   Fixed EMA alpha\n"
@@ -47,7 +48,8 @@ static void usage(const char *argv0)
             "  --self-test                 Run numeric sanity checks and exit\n"
             "  -h, --help                  Show this help\n"
             "\n"
-            "If FILE is omitted, samples.txt in the current directory is used.\n",
+            "If FILE is omitted, samples.txt is used (fed sample-by-sample).\n"
+            "Pipe live data:  ./smooth --live --csv\n",
             argv0, PEAKCUT_DEFAULT_RADIUS, PEAKCUT_DEFAULT_SIGMA);
 }
 
@@ -156,7 +158,7 @@ static int load_samples(const char *path, float **out, size_t *n)
     return 0;
 }
 
-static int run_filter(Method method, const float *x, float *y, size_t n,
+static int run_filter(Method method, int offline, const float *x, float *y, size_t n,
                       int radius, float sigma,
                       float min_cutoff, float beta, float d_cutoff, float dt,
                       float ema_alpha, float aema_min, float aema_max,
@@ -166,9 +168,17 @@ static int run_filter(Method method, const float *x, float *y, size_t n,
     OneEuro euro;
     AdaptiveEma aema;
     Ema ema;
+    PeakCutStream stream;
 
     if (method == METHOD_PEAKCUT) {
-        return peakcut_filter(x, y, n, radius, sigma);
+        if (offline) {
+            return peakcut_filter(x, y, n, radius, sigma);
+        }
+        peakcut_stream_init(&stream, radius, sigma);
+        for (i = 0; i < n; i++) {
+            y[i] = peakcut_stream_update(&stream, x[i]);
+        }
+        return 0;
     }
 
     one_euro_init(&euro, min_cutoff, beta, d_cutoff);
@@ -327,7 +337,7 @@ static int write_svg(const char *path, const float *x, const float *y, size_t n)
             "viewBox=\"0 0 %d %d\">\n"
             "<rect width=\"100%%\" height=\"100%%\" fill=\"#0f1419\"/>\n"
             "<text x=\"%d\" y=\"20\" fill=\"#d7e0ea\" font-size=\"14\" "
-            "font-family=\"sans-serif\">raw vs peak-cut smooth</text>\n"
+            "font-family=\"sans-serif\">raw vs real-time peak-cut</text>\n"
             "<text x=\"%d\" y=\"20\" fill=\"#8aa0b4\" font-size=\"12\" "
             "font-family=\"sans-serif\" text-anchor=\"end\">"
             "<tspan fill=\"#6b7c8d\">raw</tspan>  "
@@ -428,6 +438,51 @@ static int self_test(void)
         fails++;
     }
 
+    {
+        PeakCutStream st;
+        float last;
+
+        peakcut_stream_init(&st, 4, 2.0f);
+        last = 0.0f;
+        for (i = 0; i < 30; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        if (fabsf(last - 10.0f) > 0.05f) {
+            fprintf(stderr, "FAIL: stream constant drifted (%f)\n", last);
+            fails++;
+        }
+
+        peakcut_stream_init(&st, 4, 2.0f);
+        for (i = 0; i < 12; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        (void)peakcut_stream_update(&st, 90.0f);
+        for (i = 0; i < 8; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        if (last > 16.0f) {
+            fprintf(stderr, "FAIL: stream did not cut spike (%f)\n", last);
+            fails++;
+        }
+
+        peakcut_stream_init(&st, 3, 1.5f);
+        last = peakcut_stream_update(&st, 0.0f);
+        for (i = 1; i < 25; i++) {
+            float yi = peakcut_stream_update(&st, (float)i);
+            if (yi < last - 0.001f) {
+                fprintf(stderr, "FAIL: stream ramp went backwards at %d (%f -> %f)\n",
+                        i, last, yi);
+                fails++;
+                break;
+            }
+            last = yi;
+        }
+        if (last < 8.0f) {
+            fprintf(stderr, "FAIL: stream ramp did not rise (%f)\n", last);
+            fails++;
+        }
+    }
+
     if (fails == 0) {
         printf("self-test: all checks passed\n");
         return 0;
@@ -452,6 +507,8 @@ int main(int argc, char **argv)
     float aema_max = DEFAULT_AEMA_MAX;
     float aema_knee = DEFAULT_AEMA_KNEE;
     int csv = 0;
+    int offline = 0;
+    int live = 0;
     int i;
     float *x = NULL;
     float *y = NULL;
@@ -465,6 +522,14 @@ int main(int argc, char **argv)
         }
         if (strcmp(argv[i], "--self-test") == 0) {
             return self_test();
+        }
+        if (strcmp(argv[i], "--offline") == 0) {
+            offline = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "--live") == 0) {
+            live = 1;
+            continue;
         }
         if (strcmp(argv[i], "--csv") == 0) {
             csv = 1;
@@ -542,6 +607,29 @@ int main(int argc, char **argv)
         path = argv[i];
     }
 
+    if (live) {
+        PeakCutStream stream;
+        float xv;
+        float yv;
+        int idx = 0;
+
+        peakcut_stream_init(&stream, radius, sigma);
+        if (csv) {
+            printf("n,raw,smoothed\n");
+        }
+        while (scanf("%f", &xv) == 1) {
+            yv = peakcut_stream_update(&stream, xv);
+            if (csv) {
+                printf("%d,%.4f,%.4f\n", idx, xv, yv);
+            } else {
+                printf("%3d  %8.3f  %8.3f\n", idx, xv, yv);
+            }
+            fflush(stdout);
+            idx++;
+        }
+        return 0;
+    }
+
     if (load_samples(path, &x, &n) != 0) {
         return 1;
     }
@@ -551,8 +639,8 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (run_filter(method, x, y, n, radius, sigma, min_cutoff, beta, d_cutoff, dt,
-                   ema_alpha, aema_min, aema_max, aema_knee) != 0) {
+    if (run_filter(method, offline, x, y, n, radius, sigma, min_cutoff, beta,
+                   d_cutoff, dt, ema_alpha, aema_min, aema_max, aema_knee) != 0) {
         fprintf(stderr, "filter failed\n");
         free(x);
         free(y);
@@ -565,7 +653,7 @@ int main(int argc, char **argv)
             printf("%d,%.4f,%.4f\n", i, x[i], y[i]);
         }
     } else {
-        printf("method           : %s\n", method_name);
+        printf("method           : %s%s\n", method_name, offline ? " (offline)" : " (realtime stream)");
         if (method == METHOD_PEAKCUT) {
             printf("peakcut params   : radius=%d  sigma=%.2f\n", radius, sigma);
         }

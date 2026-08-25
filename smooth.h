@@ -4,11 +4,10 @@
 #include <stddef.h>
 
 /*
- * Peak-cutting smoother: morphological opening (cuts narrow spikes)
- * followed by a Gaussian low-pass (makes a C-ish curve).
+ * Real-time peak-cutting smoother.
  *
- * Opening with radius R removes peaks narrower than 2R+1 samples and
- * leaves slower trends (the two wide valleys in the demo series).
+ * Streaming API: one output per input, no lookahead.
+ * Offline API: centered opening + Gaussian (uses future samples).
  */
 
 #ifdef __cplusplus
@@ -19,9 +18,36 @@ extern "C" {
 #define PEAKCUT_DEFAULT_SIGMA  4.0f
 #define PEAKCUT_MAX_RADIUS     48
 #define PEAKCUT_MAX_SIGMA      16.0f
+#define PEAKCUT_STREAM_MAX     97  /* 2 * PEAKCUT_MAX_RADIUS + 1 */
 
-/* y may alias x. Returns 0 on success, -1 on bad args / OOM. */
+/* Offline (uses future samples). y may alias x. 0 on success, -1 on error. */
 int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
+
+/*
+ * Real-time peak-cut smoother: one output per input, no lookahead.
+ * Causal opening cuts narrow spikes using the past window; a 2-pole
+ * low-pass then makes successive outputs a smooth curve.
+ *
+ * Hot path: no malloc. Window scan is O(radius).
+ */
+typedef struct {
+    int radius;
+    int win;
+    float sigma;
+    float alpha;
+    float raw[PEAKCUT_STREAM_MAX];
+    float eroded[PEAKCUT_STREAM_MAX];
+    int iraw;
+    int iero;
+    int nraw;
+    int nero;
+    float z1;
+    float z2;
+    int initialized;
+} PeakCutStream;
+
+void peakcut_stream_init(PeakCutStream *s, int radius, float sigma);
+float peakcut_stream_update(PeakCutStream *s, float x);
 
 typedef struct {
     float min_cutoff;

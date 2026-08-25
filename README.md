@@ -1,13 +1,13 @@
-# 削峰平滑滤波（C）
+# 实时削峰平滑（C）
 
-把窄**尖峰削掉**，再收成一条没有尖峰的平滑曲线。
+数据是**逐点进来**的：每来一个采样立刻输出一个点，把这些点连起来就是一条没有尖峰的平滑曲线。
 
-两级处理：
+实时路径不看未来点：
 
-1. **形态学开运算**（先腐蚀再膨胀）：宽度小于 `2R+1` 的尖峰被削平，两段较宽的下落会被保留。
-2. **高斯平滑**：把台阶收成连续曲线。
+1. **因果开运算**（过去 `2R+1` 个点的 min 再 max）：窄尖峰被削掉  
+2. **双极点低通**（由 `--sigma` 决定）：保证相邻输出连成光滑曲线  
 
-默认 `R=8`（可削掉约 17 点宽以内的峰），`σ=4`。
+大段下落会晚大约 `2R` 个点才跟上，这是不偷看未来的代价。离线对照用 `--offline`。
 
 ## 构建
 
@@ -15,28 +15,37 @@
 make
 ```
 
-## 使用
-
-```bash
-./smooth                 # 处理当前目录 samples.txt
-./smooth samples.txt
-./smooth --csv
-./smooth --svg out.svg
-./smooth --radius 10 --sigma 5   # 峰更宽 / 曲线更软
-./smooth --self-test
-```
-
-嵌入自己的程序：
+## 实时嵌入
 
 ```c
 #include "smooth.h"
 
-float y[N];
-peakcut_filter(x, y, N, 8, 4.0f);
+PeakCutStream s;
+peakcut_stream_init(&s, 8, 4.0f);
+
+/* 采样回调 / 主循环里：来一个 x，出一个 y */
+float y = peakcut_stream_update(&s, x);
+/* 把 y 画到曲线上 */
 ```
 
-尖峰还在：加大 `--radius`。曲线还不够圆：加大 `--sigma`。
+热路径无 malloc，每次 O(R)。
 
-## 和 1-Euro 的区别
+## 命令行
 
-1-Euro 会跟着尖峰走，所以平台上的周期峰还在。本程序默认先削峰，再平滑，平台段会收成一条线。
+```bash
+./smooth                      # 把 samples.txt 当成实时流，逐点处理
+./smooth --csv
+./smooth --svg out.svg
+./smooth --live --csv         # 从 stdin 读实时数字，来一个打一个
+./smooth --radius 10 --sigma 5
+./smooth --offline            # 原来的整段批处理（会用到未来点）
+./smooth --self-test
+```
+
+管道示例：
+
+```bash
+cat samples.txt | tr ',' ' ' | ./smooth --live --csv
+```
+
+尖峰还在：加大 `--radius`。曲线不够圆：加大 `--sigma`。
