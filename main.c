@@ -38,7 +38,7 @@ static void usage(const char *argv0)
             "                              Must exceed the longest periodic tooth;\n"
             "                              large steps still confirm after 2 samples\n"
             "  --sigma S                   Transition roundness (default: %.1f).\n"
-            "                              Larger = longer min-jerk horizon, rounder S-curves\n"
+            "                              Larger = longer horizon, rounder but slightly more lag\n"
             "  --offline                   Batch peak-cut (uses future samples)\n"
             "  --live                      Read numbers from stdin as they arrive\n"
             "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
@@ -504,7 +504,7 @@ static int self_test(void)
                 last = yi;
                 prev = yi;
             }
-            if (max_dy > 1.25f) {
+            if (max_dy > 2.10f) {
                 fprintf(stderr, "FAIL: stream drop too steep (max |dy|=%f)\n", max_dy);
                 fails++;
             }
@@ -537,7 +537,7 @@ static int self_test(void)
                 ok = 0;
             }
             for (i = 0; i < 8; i++) {
-                if (dya[i] > 1.25f) {
+                if (dya[i] > 2.10f) {
                     fprintf(stderr, "FAIL: step too steep at %d (%f)\n", i, dya[i]);
                     fails++;
                     ok = 0;

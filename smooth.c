@@ -187,41 +187,49 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
         s->leak = 0.010f;
     }
     /*
-     * Online min-jerk horizon. T grows with |vel| so a locked cruise
-     * cannot form: faster motion plans a longer stop, which bends the
-     * slope. Peak |Δy| is not clipped to a constant increment.
+     * Rest-to-rest min-jerk always planned to STOP, so live ramps lagged
+     * 50–70 samples. Horizon is now T = t_min + t_sqrt * sqrt(|e|)
+     * and the endpoint velocity is dest_vel (EMA of Δdest).
      */
-    s->t_min = 26.0f + 4.0f * sigma;
-    if (s->t_min < 22.0f) {
-        s->t_min = 22.0f;
+    s->t_min = 10.0f + 0.80f * sigma;
+    if (s->t_min < 8.0f) {
+        s->t_min = 8.0f;
     }
-    if (s->t_min > 72.0f) {
-        s->t_min = 72.0f;
+    if (s->t_min > 18.0f) {
+        s->t_min = 18.0f;
     }
-    s->t_kv = 55.0f + 9.0f * sigma;
-    if (s->t_kv < 40.0f) {
-        s->t_kv = 40.0f;
+    s->t_sqrt = 3.4f + 0.22f * sigma;
+    if (s->t_sqrt < 3.0f) {
+        s->t_sqrt = 3.0f;
     }
-    if (s->t_kv > 120.0f) {
-        s->t_kv = 120.0f;
+    if (s->t_sqrt > 6.0f) {
+        s->t_sqrt = 6.0f;
     }
-    s->v_soft = 0.90f;
-    s->t_max = 90.0f + 18.0f * sigma;
-    if (s->t_max < 96.0f) {
-        s->t_max = 96.0f;
+    s->t_max = 28.0f + 2.4f * sigma;
+    if (s->t_max < 32.0f) {
+        s->t_max = 32.0f;
     }
-    if (s->t_max > 240.0f) {
-        s->t_max = 240.0f;
+    if (s->t_max > 56.0f) {
+        s->t_max = 56.0f;
     }
+    s->j_max = 0.072f - 0.0044f * sigma;
+    if (s->j_max < 0.032f) {
+        s->j_max = 0.032f;
+    }
+    if (s->j_max > 0.070f) {
+        s->j_max = 0.070f;
+    }
+    s->v_beta = 0.30f;
+    s->v_lim = 1.6f;
     /* Local range below this while close to y → leave sticky follow. */
     s->settle_span = 4.0f + 0.6f * sigma;
     s->settle_need = 6;
 }
 
 /*
- * One sample of a 5th-order rest-to-rest plan from (y, vel, acc)
- * to (dest, 0, 0) in time T. Replanned every sample; T is never a
- * hard speed clip, so Δy keeps changing (S-curve, not a straight ramp).
+ * One sample of a 5th-order plan from (y, vel, acc) to
+ * (dest, dest_vel, 0) in time T. dest_vel feedforward is what
+ * cuts the lag of rest-to-rest min-jerk on live ramps.
  */
 static float follow_minjerk(PeakCutStream *s, float dest)
 {
@@ -229,7 +237,8 @@ static float follow_minjerk(PeakCutStream *s, float dest)
     double v = (double)s->vel;
     double a = (double)s->acc;
     double e = (double)dest - y;
-    double av = v >= 0.0 ? v : -v;
+    double ae = e >= 0.0 ? e : -e;
+    double vT;
     double T;
     double T2;
     double T3;
@@ -241,25 +250,62 @@ static float follow_minjerk(PeakCutStream *s, float dest)
     double yn;
     double vn;
     double an;
+    double j;
+    double dd;
+    float dv;
 
-    T = (double)s->t_min + (double)s->t_kv * av;
+    dd = (double)dest - (double)s->dest_prev;
+    if (s->sticky) {
+        /* A confirm jumps dest; that is a step, not a velocity. */
+        if (dd > 2.5 || dd < -2.5) {
+            dv = 0.0f;
+        } else {
+            dv = s->dest_vel + s->v_beta * ((float)dd - s->dest_vel);
+            if (dv > s->v_lim) {
+                dv = s->v_lim;
+            }
+            if (dv < -s->v_lim) {
+                dv = -s->v_lim;
+            }
+        }
+        s->dest_vel = dv;
+        vT = (double)dv;
+    } else {
+        s->dest_vel += s->v_beta * (0.0f - s->dest_vel);
+        vT = 0.0;
+    }
+    s->dest_prev = dest;
+
+    T = (double)s->t_min + (double)s->t_sqrt * sqrt(ae);
     if (T > (double)s->t_max) {
         T = (double)s->t_max;
     }
-    if (T < 4.0) {
-        T = 4.0;
+    if (T < 6.0) {
+        T = 6.0;
     }
 
     T2 = T * T;
     T3 = T2 * T;
     T4 = T3 * T;
     T5 = T4 * T;
-    c3 = (20.0 * e - 12.0 * v * T - 3.0 * a * T2) / (2.0 * T3);
-    c4 = (-30.0 * e + 16.0 * v * T + 3.0 * a * T2) / (2.0 * T4);
-    c5 = (12.0 * e - 6.0 * v * T - a * T2) / (2.0 * T5);
+    c3 = (20.0 * e - (8.0 * vT + 12.0 * v) * T - 3.0 * a * T2) / (2.0 * T3);
+    c4 = (-30.0 * e + (14.0 * vT + 16.0 * v) * T + 3.0 * a * T2) / (2.0 * T4);
+    c5 = (12.0 * e - (6.0 * vT + 6.0 * v) * T - a * T2) / (2.0 * T5);
     yn = y + v + 0.5 * a + c3 + c4 + c5;
     vn = v + a + 3.0 * c3 + 4.0 * c4 + 5.0 * c5;
     an = a + 6.0 * c3 + 12.0 * c4 + 20.0 * c5;
+
+    j = an - a;
+    if (j > (double)s->j_max || j < -(double)s->j_max) {
+        if (j > (double)s->j_max) {
+            j = (double)s->j_max;
+        } else {
+            j = -(double)s->j_max;
+        }
+        an = a + j;
+        vn = v + an;
+        yn = y + vn;
+    }
 
     s->y = (float)yn;
     s->vel = (float)vn;
@@ -337,6 +383,8 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         s->y = x;
         s->vel = 0.0f;
         s->acc = 0.0f;
+        s->dest_prev = x;
+        s->dest_vel = 0.0f;
         s->up_count = 0;
         s->dn_count = 0;
         s->sticky = 0;
