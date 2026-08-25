@@ -189,31 +189,24 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     /*
      * Online min-jerk horizon. T grows with |vel| so a locked cruise
      * cannot form: faster motion plans a longer stop, which bends the
-     * slope. v_soft stretches T on large errors so peak |Δy| stays
-     * bounded without clipping to a constant increment.
+     * slope. Peak |Δy| is not clipped to a constant increment.
      */
-    s->t_min = 18.0f + 2.8f * sigma;
-    if (s->t_min < 16.0f) {
-        s->t_min = 16.0f;
+    s->t_min = 26.0f + 4.0f * sigma;
+    if (s->t_min < 22.0f) {
+        s->t_min = 22.0f;
     }
-    if (s->t_min > 56.0f) {
-        s->t_min = 56.0f;
+    if (s->t_min > 72.0f) {
+        s->t_min = 72.0f;
     }
-    s->t_kv = 35.0f + 5.0f * sigma;
-    if (s->t_kv < 30.0f) {
-        s->t_kv = 30.0f;
+    s->t_kv = 55.0f + 9.0f * sigma;
+    if (s->t_kv < 40.0f) {
+        s->t_kv = 40.0f;
     }
-    if (s->t_kv > 90.0f) {
-        s->t_kv = 90.0f;
+    if (s->t_kv > 120.0f) {
+        s->t_kv = 120.0f;
     }
-    s->v_soft = 0.55f + 0.060f * sigma;
-    if (s->v_soft < 0.50f) {
-        s->v_soft = 0.50f;
-    }
-    if (s->v_soft > 0.95f) {
-        s->v_soft = 0.95f;
-    }
-    s->t_max = 70.0f + 16.0f * sigma;
+    s->v_soft = 0.90f;
+    s->t_max = 90.0f + 18.0f * sigma;
     if (s->t_max < 96.0f) {
         s->t_max = 96.0f;
     }
@@ -237,7 +230,6 @@ static float follow_minjerk(PeakCutStream *s, float dest)
     double a = (double)s->acc;
     double e = (double)dest - y;
     double av = v >= 0.0 ? v : -v;
-    double ae = e >= 0.0 ? e : -e;
     double T;
     double T2;
     double T3;
@@ -251,12 +243,6 @@ static float follow_minjerk(PeakCutStream *s, float dest)
     double an;
 
     T = (double)s->t_min + (double)s->t_kv * av;
-    if (s->v_soft > 1e-6f && ae > 1e-9) {
-        double t_span = 1.875 * ae / (double)s->v_soft;
-        if (t_span > T) {
-            T = t_span;
-        }
-    }
     if (T > (double)s->t_max) {
         T = (double)s->t_max;
     }
