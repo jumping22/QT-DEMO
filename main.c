@@ -655,6 +655,23 @@ static int self_test(void)
         }
     }
 
+    {
+        PressureFilter pf;
+        float p;
+
+        pressure_filter_init(&pf);
+        p = pressure_filter_update(&pf, 25.0f);
+        if (p != 25.0f) {
+            fprintf(stderr, "FAIL: pressure_filter first sample (%f)\n", p);
+            fails++;
+        }
+        p = pressure_filter_update(&pf, 25.2f);
+        if (fabsf(pressure_filter_get(&pf) - p) > 1e-6f) {
+            fprintf(stderr, "FAIL: pressure_filter_get mismatch\n");
+            fails++;
+        }
+    }
+
     if (fails == 0) {
         printf("self-test: all checks passed\n");
         return 0;

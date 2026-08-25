@@ -1,103 +1,56 @@
-# 实时削峰平滑（C）
+# 压力实时平滑滤波（C / FreeRTOS）
 
-每个采样点都是现场拿到的：来一个立刻出一个（O(1)，不看未来）。门控决定跟不跟，跟随器用带**目标速度前馈**的 min-jerk 画成圆滑曲线，尽量贴着实时数据走。
+输入：**一个压力采样点**。输出：**平滑后的压力值**。来一个立刻出一个，O(1)，不看未来，无动态分配，可直接拷进 FreeRTOS 工程。
 
-## 算法思路
+## 移植（只需两个文件）
 
-滞后主要不是门控（大跳变 2 点就确认），而是上一版跟随器每次都规划「停在当前目标」。目标还在动时，规划一直在刹车，所以会落后 50～70 个点。
-
-这一版分成两层，每点只看当前输入 `x` 和内部状态，绝不读未来。
-
-### 1. 双边门控（跟不跟）
-
-| 情况 | 条件 | 行为 |
-| --- | --- | --- |
-| 死区 | `\|x − y\| ≤ dead`（σ=5 时约 6） | 不跟齿，只泄漏 `leak·(x−y)` |
-| 中等偏离 | 超出死区但不到大跳 | 连续 `hold` 点（默认 16）才确认 |
-| 大跳变 | 升 `≥ big_up≈13` / 降 `≥ big_dn≈10` | 连续 **2** 点确认 |
-| 粘滞 | 确认之后 | `dest = x`，遇到**反向**（周期齿）或长期走平才解锁；同向短暂停不锁死 |
-
-门控输出的是目标 `dest`，不是曲线本身。短齿被挡住，真台阶才会交给跟随器。
-
-升降中途若把短暂停当成平台解锁，跟随器会刹停，再花 `hold` 点重新确认——图上就是上升段、下降段各多出一块台阶。所以：
-
-- 记本次粘滞方向和极值 `ext`
-- `ext − x` 超过 `reverse_need`（σ=5 时约 7）连续 3 点 → 当成齿，解锁（顶部削峰）
-- 只有慢趋势也走平（`|x − x_slow| ≤ 2.2`）才按静默解锁
-- 慢趋势还在时保持最小巡航速度 `cruise≈0.18`，短暂停上曲线继续走，不刹成平台
-- 反向解锁后同方向死区抬到 `big_up / big_dn`，下一周期齿不会再被当成新台阶
-
-### 2. 带速度前馈的 min-jerk（怎么走）
-
-上一版每步都规划 rest-to-rest：`(y,v,a) → (dest, 0, 0)`。`dest` 沿斜坡移动时，规划终点速度永远是 0，等于每步都在刹车，曲线必然落后。
-
-这一版估计目标速度，规划终点不再静止：
-
-```
-若 sticky 且 |Δdest| ≤ 2.5:
-    dest_vel ← EMA(Δdest)          # 目标正在往哪走（β=0.30，限幅 ±1.6）
-否则:
-    dest_vel ← 0                   # 确认跳变是台阶，不是速度
-
-T = clamp(t_min + t_sqrt * √|dest − y|, 6, t_max)
-
-五次多项式 1 步:
-    (y, v, a) → (dest, dest_vel, 0)
-若该步 jerk 超过 j_max:
-    用限幅后的 jerk 做欧拉积分（开头仍缓加速，没有单点陡跳）
-```
-
-五次多项式系数（终点加速度为 0，时间尺度为 `T`，每点只走 `t=1`）：
-
-```
-c3 = (20e − (8 vT + 12 v)T − 3 a T²) / (2 T³)
-c4 = (−30e + (14 vT + 16 v)T + 3 a T²) / (2 T⁴)
-c5 = (12e − (6 vT + 6 v)T − a T²) / (2 T⁵)
-y ← y + v + ½a + c3 + c4 + c5
-```
-
-- `dest_vel`：斜坡上跟着走，不再每次都规划刹停
-- `T` 随误差开方变长：大台阶仍能圆角；小齿误差小，`T` 有下限，平台不会跟着晃
-- 不用硬 `vmax`：那会把连续几十点的 `Δy` 钉死，图上就是斜直线
-
-默认 `--radius 16 --sigma 5`：`t_min≈14`，`t_sqrt≈4.5`，`t_max≈40`，`j_max≈0.05`。
-
-### 实测滞后（相对原始越过阈值的点数）
-
-| 序列 | 事件 | 旧（rest-to-rest） | 新（速度前馈） |
-| --- | --- | ---: | ---: |
-| A | raw>40 | 46 | 33 |
-| A | raw>70 | 66 | 35 |
-| A | 下降 raw<50 | 50 | 34 |
-| B | raw>40 | 50 | 38 |
-| B | raw>70 | 67 | 30 |
-| B | 下降 raw<50 | 52 | 38 |
-
-大约少 30%～50%。因果平滑不可能零滞后：门控还要 2 点确认大跳，跟随器还要缓加速。再压 `t_min` 会抬高 `max\|Δy\|`、平台更容易晃。
-
-## 参数
-
-- `--radius`（默认 16）：中等偏离确认长度，应大于最宽周期齿。
-- `--sigma`（默认 5）：越大 `T / j_max` 越保守，更圆、略慢。
-
-## 实时嵌入
+把 `pressure_filter.h` 和 `pressure_filter.c` 加入工程，链接 `libm`（`-lm`）。不要把 `smooth.c` / `main.c` 下到 MCU——那些是 PC 演示和离线接口。
 
 ```c
-#include "smooth.h"
+#include "pressure_filter.h"
 
-PeakCutStream s;
-peakcut_stream_init(&s, 16, 5.0f);
+static PressureFilter s_press;   /* 每个传感器一个实例，静态即可 */
 
-float y = peakcut_stream_update(&s, x);
+void app_init(void)
+{
+    pressure_filter_init(&s_press);          /* hold=16, smoothness=5 */
+    /* pressure_filter_init_ex(&s_press, 16, 5.0f); */
+}
+
+void sensor_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        float raw = read_pressure();                 /* ADC / I2C / SPI */
+        float filtered = pressure_filter_update(&s_press, raw);
+        /* 用 filtered 做显示、控制、上报 */
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 ```
 
-## 命令行
+### FreeRTOS 注意
+
+- 滤波器本身**不调用** FreeRTOS API，任务里怎么调都可以。
+- **同一个** `PressureFilter` 不要同时在两个任务或 ISR 里 `update`。一个任务独占，或外面加 mutex。
+- 状态全在结构体里（约 0.3 KB），不要 `malloc`。
+- 用 `float` + `sqrtf`。Cortex-M4F/M7 请打开硬件 FPU。
+- 采样周期尽量均匀；算法按「点」工作，不读时间戳。
+
+### 参数
+
+- `hold`（默认 16）：中等变化要持续这么多样点才跟。应大于周期齿的宽度。
+- `smoothness`（默认 5）：越大转折越圆、略慢。
+
+## 算法（简述）
+
+1. **门控**：死区内的齿不跟；大跳变连续 2 点确认；确认后粘滞跟踪。反向（周期齿）或真走平才解锁；升降中途的短暂停不锁成台阶。
+2. **min-jerk**：每步用五次多项式走向 `(目标, 目标速度)`，限加加速度，输出圆滑、无斜直线。
+
+## PC 演示
 
 ```bash
 make
-./smooth
-./smooth --sigma 6
-./smooth --live --csv
-./smooth --offline
 ./smooth --self-test
+./smooth --csv samples.txt
 ```

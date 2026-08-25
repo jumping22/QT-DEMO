@@ -6,8 +6,8 @@ LDFLAGS ?= -lm
 
 all: smooth
 
-smooth: main.c smooth.c smooth.h
-	$(CC) $(CFLAGS) -o $@ main.c smooth.c $(LDFLAGS)
+smooth: main.c smooth.c smooth.h pressure_filter.c pressure_filter.h
+	$(CC) $(CFLAGS) -o $@ main.c smooth.c pressure_filter.c $(LDFLAGS)
 
 test: smooth
 	./smooth --self-test
