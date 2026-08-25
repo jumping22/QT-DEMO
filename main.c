@@ -37,8 +37,8 @@ static void usage(const char *argv0)
             "  --radius R                  Spike hold in samples (default: %d).\n"
             "                              Wider peaks need a larger R; confirmed\n"
             "                              rises wait this many samples\n"
-            "  --sigma S                   Curve roundness (default: %.1f).\n"
-            "                              Larger is smoother; drops stay fast\n"
+            "  --sigma S                   Plateau roundness (default: %.1f).\n"
+            "                              Larger is smoother on flats; drops stay fast\n"
             "  --offline                   Batch peak-cut (uses future samples)\n"
             "  --live                      Read numbers from stdin as they arrive\n"
             "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
@@ -485,7 +485,7 @@ static int self_test(void)
             fails++;
         }
 
-        peakcut_stream_init(&st, 7, 3.5f);
+        peakcut_stream_init(&st, 7, 5.0f);
         for (i = 0; i < 25; i++) {
             last = peakcut_stream_update(&st, 80.0f);
         }

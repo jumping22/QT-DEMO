@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 #define PEAKCUT_DEFAULT_RADIUS 7
-#define PEAKCUT_DEFAULT_SIGMA  3.5f
+#define PEAKCUT_DEFAULT_SIGMA  5.0f
 #define PEAKCUT_MAX_RADIUS     48
 #define PEAKCUT_MAX_SIGMA      16.0f
 #define PEAKCUT_DEFAULT_MARGIN 3.0f
@@ -17,19 +17,22 @@ extern "C" {
 int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
 
 /*
- * Real-time smoother: one output per input, O(1), no lookahead, no buffers.
+ * Real-time smoother: one output per input, O(1), no lookahead.
  *
- * Upward bursts shorter than `radius` samples are treated as spikes and
- * ignored. Real drops and confirmed rises are tracked with an asymmetric
- * SmoothDamp so successive outputs stay a smooth curve with low lag.
+ * 1) Duration gate: short upward bursts are spikes and are not tracked.
+ * 2) Adaptive 3-pole low-pass: heavy when the error is small (smooth
+ *    plateaus), light when the error is large (follow real drops).
  */
 typedef struct {
     int hold;
     float margin;
-    float st_up;
-    float st_dn;
+    float amin;
+    float amax;
+    float knee;
+    float z1;
+    float z2;
+    float z3;
     float y;
-    float vel;
     int high_count;
     int initialized;
 } PeakCutStream;

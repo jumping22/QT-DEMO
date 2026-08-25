@@ -159,38 +159,6 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma)
     return 0;
 }
 
-/*
- * Critically-damped lag (Unity SmoothDamp). dt = 1 sample.
- * Smaller smooth_time → lower lag, slightly less rounding.
- */
-static float smooth_damp(float current, float target, float *vel, float smooth_time)
-{
-    const float dt = 1.0f;
-    float st;
-    float omega;
-    float x;
-    float expn;
-    float change;
-    float original;
-    float temp;
-    float out;
-
-    st = smooth_time > 1e-4f ? smooth_time : 1e-4f;
-    omega = 2.0f / st;
-    x = omega * dt;
-    expn = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
-    original = target;
-    change = current - target;
-    temp = (*vel + omega * change) * dt;
-    *vel = (*vel - omega * temp) * expn;
-    out = target + (change + temp) * expn;
-    if ((original - current > 0.0f) == (out > original)) {
-        out = original;
-        *vel = 0.0f;
-    }
-    return out;
-}
-
 void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
 {
     memset(s, 0, sizeof(*s));
@@ -200,59 +168,80 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     if (radius > PEAKCUT_MAX_RADIUS) {
         radius = PEAKCUT_MAX_RADIUS;
     }
-    if (sigma < 0.5f) {
-        sigma = 0.5f;
+    if (sigma < 0.8f) {
+        sigma = 0.8f;
     }
     if (sigma > PEAKCUT_MAX_SIGMA) {
         sigma = PEAKCUT_MAX_SIGMA;
     }
     s->hold = radius;
     s->margin = PEAKCUT_DEFAULT_MARGIN;
-    /* Larger sigma → slower rise tracking, rounder curve. Drops stay fast. */
-    s->st_up = 1.4f + 0.55f * sigma;
-    s->st_dn = 0.85f + 0.08f * sigma;
-    if (s->st_dn < 0.7f) {
-        s->st_dn = 0.7f;
+    /* Larger sigma → smaller amin → rounder plateaus. Drops still use amax. */
+    s->amin = 0.20f / sigma;
+    if (s->amin > 0.08f) {
+        s->amin = 0.08f;
     }
+    if (s->amin < 0.022f) {
+        s->amin = 0.022f;
+    }
+    s->amax = 0.58f + 0.014f * sigma;
+    if (s->amax > 0.85f) {
+        s->amax = 0.85f;
+    }
+    s->knee = 2.2f + 0.32f * sigma;
 }
 
 float peakcut_stream_update(PeakCutStream *s, float x)
 {
     float gated;
-    float st;
+    float err;
+    float aerr;
+    float mix;
+    float a;
 
     if (!s->initialized) {
         s->initialized = 1;
+        s->z1 = x;
+        s->z2 = x;
+        s->z3 = x;
         s->y = x;
-        s->vel = 0.0f;
         s->high_count = 0;
         return x;
     }
 
-    /*
-     * Direction + duration gate (no window):
-     *   x well above y for fewer than `hold` samples → spike, stay
-     *   same, but confirmed → real rise, catch up
-     *   x not well above y (includes drops) → track immediately
-     */
+    /* Duration gate: ignore short upward bursts, pass drops immediately. */
     if (x > s->y + s->margin) {
         s->high_count++;
         if (s->high_count >= s->hold) {
             gated = x;
-            /* Confirmed rise: faster than plateau, slower than a drop. */
-            st = 0.55f * s->st_up + 0.45f * s->st_dn;
         } else {
-            /* Tiny leak so a long ramp does not freeze then jump. */
             gated = s->y + 0.08f * (x - s->y);
-            st = s->st_up;
         }
     } else {
         s->high_count = 0;
         gated = x;
-        st = (x < s->y) ? s->st_dn : s->st_up;
     }
 
-    s->y = smooth_damp(s->y, gated, &s->vel, st);
+    /*
+     * Adaptive 3-pole: mix→0 on a plateau (use amin, round curve),
+     * mix→1 on a large move (use amax, keep up). Downward moves get
+     * a slightly larger alpha so real drops stay timely.
+     */
+    err = gated - s->y;
+    aerr = err >= 0.0f ? err : -err;
+    mix = aerr / (aerr + s->knee);
+    a = s->amin + (s->amax - s->amin) * mix;
+    if (err < 0.0f) {
+        a *= 1.18f;
+        if (a > 1.0f) {
+            a = 1.0f;
+        }
+    }
+
+    s->z1 += a * (gated - s->z1);
+    s->z2 += a * (s->z1 - s->z2);
+    s->z3 += a * (s->z2 - s->z3);
+    s->y = s->z3;
     return s->y;
 }
 
