@@ -1,6 +1,8 @@
 #include "smooth.h"
 
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -17,7 +19,146 @@ static float clampf(float x, float lo, float hi)
     return x;
 }
 
-/* Convert a cutoff (cycles per time unit) into an EMA blending factor. */
+static float min_window(const float *v, size_t n, size_t i, int r)
+{
+    size_t a = (i > (size_t)r) ? i - (size_t)r : 0;
+    size_t b = i + (size_t)r + 1;
+    size_t k;
+    float m;
+
+    if (b > n) {
+        b = n;
+    }
+    m = v[a];
+    for (k = a + 1; k < b; k++) {
+        if (v[k] < m) {
+            m = v[k];
+        }
+    }
+    return m;
+}
+
+static float max_window(const float *v, size_t n, size_t i, int r)
+{
+    size_t a = (i > (size_t)r) ? i - (size_t)r : 0;
+    size_t b = i + (size_t)r + 1;
+    size_t k;
+    float m;
+
+    if (b > n) {
+        b = n;
+    }
+    m = v[a];
+    for (k = a + 1; k < b; k++) {
+        if (v[k] > m) {
+            m = v[k];
+        }
+    }
+    return m;
+}
+
+/* Morphological opening: erode then dilate. Cuts peaks, keeps wide valleys. */
+static void morph_open(const float *x, float *y, size_t n, int radius)
+{
+    float *eroded;
+    size_t i;
+
+    eroded = (float *)malloc(n * sizeof(float));
+    if (!eroded) {
+        memcpy(y, x, n * sizeof(float));
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        eroded[i] = min_window(x, n, i, radius);
+    }
+    for (i = 0; i < n; i++) {
+        y[i] = max_window(eroded, n, i, radius);
+    }
+    free(eroded);
+}
+
+static void gaussian_smooth(const float *x, float *y, size_t n, float sigma)
+{
+    int r;
+    int k;
+    size_t i;
+    double *kernel;
+    double ksum;
+
+    if (sigma <= 0.0f) {
+        if (y != x) {
+            memcpy(y, x, n * sizeof(float));
+        }
+        return;
+    }
+
+    r = (int)ceil((double)sigma * 3.0);
+    if (r < 1) {
+        r = 1;
+    }
+    kernel = (double *)malloc((size_t)(2 * r + 1) * sizeof(double));
+    if (!kernel) {
+        if (y != x) {
+            memcpy(y, x, n * sizeof(float));
+        }
+        return;
+    }
+
+    ksum = 0.0;
+    for (k = -r; k <= r; k++) {
+        double u = (double)k / (double)sigma;
+        double w = exp(-0.5 * u * u);
+        kernel[k + r] = w;
+        ksum += w;
+    }
+    for (k = 0; k < 2 * r + 1; k++) {
+        kernel[k] /= ksum;
+    }
+
+    for (i = 0; i < n; i++) {
+        double acc = 0.0;
+        double wsum = 0.0;
+        int t;
+        for (t = -r; t <= r; t++) {
+            long idx = (long)i + (long)t;
+            if (idx < 0 || idx >= (long)n) {
+                continue;
+            }
+            acc += (double)x[idx] * kernel[t + r];
+            wsum += kernel[t + r];
+        }
+        y[i] = (float)(acc / wsum);
+    }
+    free(kernel);
+}
+
+int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma)
+{
+    float *opened;
+
+    if (!x || !y || n == 0) {
+        return -1;
+    }
+    if (radius < 1) {
+        radius = 1;
+    }
+    if (radius > PEAKCUT_MAX_RADIUS) {
+        radius = PEAKCUT_MAX_RADIUS;
+    }
+    if (sigma > PEAKCUT_MAX_SIGMA) {
+        sigma = PEAKCUT_MAX_SIGMA;
+    }
+
+    opened = (float *)malloc(n * sizeof(float));
+    if (!opened) {
+        return -1;
+    }
+    morph_open(x, opened, n, radius);
+    gaussian_smooth(opened, y, n, sigma);
+    free(opened);
+    return 0;
+}
+
 static float alpha_from_cutoff(float cutoff, float dt)
 {
     float tau;
@@ -103,7 +244,6 @@ float aema_update(AdaptiveEma *f, float x)
 
     err = x - f->y;
     aerr = err >= 0.0f ? err : -err;
-    /* mix -> 0 when still, -> 1 when |error| >> knee */
     mix = aerr / (aerr + f->knee);
     alpha = f->min_alpha + (f->max_alpha - f->min_alpha) * mix;
     f->y += alpha * err;

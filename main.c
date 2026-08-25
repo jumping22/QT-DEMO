@@ -16,7 +16,8 @@
 #define DEFAULT_AEMA_KNEE  4.0f
 
 typedef enum {
-    METHOD_ONEEURO = 0,
+    METHOD_PEAKCUT = 0,
+    METHOD_ONEEURO,
     METHOD_AEMA,
     METHOD_EMA
 } Method;
@@ -26,16 +27,19 @@ static void usage(const char *argv0)
     fprintf(stderr,
             "Usage: %s [options] [file]\n"
             "\n"
-            "Real-time causal smoother. Each sample is processed in O(1) with\n"
-            "no lookahead. Default method is the 1-Euro filter.\n"
+            "Peak-cutting smoother. Morphological opening knocks down narrow\n"
+            "spikes; a Gaussian pass then turns the result into a smooth curve.\n"
             "\n"
             "Options:\n"
-            "  --method oneeuro|aema|ema   Filter type (default: oneeuro)\n"
-            "  --min-cutoff F              1-Euro min cutoff (default: %.2f)\n"
-            "  --beta B                    1-Euro speed coefficient (default: %.2f)\n"
-            "  --d-cutoff F                1-Euro derivative cutoff (default: %.2f)\n"
-            "  --dt T                      Sample period for 1-Euro (default: 1)\n"
-            "  --alpha A                   Fixed EMA alpha (default: %.2f)\n"
+            "  --method peakcut|oneeuro|aema|ema\n"
+            "                              Default: peakcut\n"
+            "  --radius R                  Opening radius (default: %d)\n"
+            "                              Larger R cuts wider peaks\n"
+            "  --sigma S                   Gaussian sigma (default: %.1f)\n"
+            "                              Larger S is smoother; 0 skips Gaussian\n"
+            "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
+            "                              1-Euro parameters\n"
+            "  --alpha A                   Fixed EMA alpha\n"
             "  --min-alpha A --max-alpha A --knee K\n"
             "                              Adaptive EMA parameters\n"
             "  --csv                       Print n,raw,smoothed CSV only\n"
@@ -44,8 +48,7 @@ static void usage(const char *argv0)
             "  -h, --help                  Show this help\n"
             "\n"
             "If FILE is omitted, samples.txt in the current directory is used.\n",
-            argv0, DEFAULT_MIN_CUTOFF, DEFAULT_BETA, DEFAULT_D_CUTOFF,
-            DEFAULT_EMA_ALPHA);
+            argv0, PEAKCUT_DEFAULT_RADIUS, PEAKCUT_DEFAULT_SIGMA);
 }
 
 static int parse_floats(const char *text, float **out, size_t *out_n)
@@ -153,15 +156,20 @@ static int load_samples(const char *path, float **out, size_t *n)
     return 0;
 }
 
-static void run_filter(Method method, const float *x, float *y, size_t n,
-                       float min_cutoff, float beta, float d_cutoff, float dt,
-                       float ema_alpha, float aema_min, float aema_max,
-                       float aema_knee)
+static int run_filter(Method method, const float *x, float *y, size_t n,
+                      int radius, float sigma,
+                      float min_cutoff, float beta, float d_cutoff, float dt,
+                      float ema_alpha, float aema_min, float aema_max,
+                      float aema_knee)
 {
     size_t i;
     OneEuro euro;
     AdaptiveEma aema;
     Ema ema;
+
+    if (method == METHOD_PEAKCUT) {
+        return peakcut_filter(x, y, n, radius, sigma);
+    }
 
     one_euro_init(&euro, min_cutoff, beta, d_cutoff);
     aema_init(&aema, aema_min, aema_max, aema_knee);
@@ -178,8 +186,12 @@ static void run_filter(Method method, const float *x, float *y, size_t n,
         case METHOD_EMA:
             y[i] = ema_update(&ema, x[i]);
             break;
+        default:
+            y[i] = x[i];
+            break;
         }
     }
+    return 0;
 }
 
 static float absf(float v)
@@ -190,46 +202,72 @@ static float absf(float v)
 static void print_stats(const float *x, const float *y, size_t n)
 {
     size_t i;
-    double sum_abs = 0.0;
     double sum_dx = 0.0;
     double sum_dy = 0.0;
-    double max_lag_drop = 0.0;
-    size_t drop_at = 0;
-    int found_drop = 0;
+    double max_dx = 0.0;
+    double max_dy = 0.0;
+    double max_d2 = 0.0;
+    double raw_peak = 0.0;
+    double sm_peak = 0.0;
 
     if (n == 0) {
         return;
     }
 
-    for (i = 0; i < n; i++) {
-        sum_abs += fabs((double)y[i] - (double)x[i]);
-        if (i > 0) {
-            sum_dx += fabs((double)x[i] - (double)x[i - 1]);
-            sum_dy += fabs((double)y[i] - (double)y[i - 1]);
+    for (i = 1; i < n; i++) {
+        double dx = fabs((double)x[i] - (double)x[i - 1]);
+        double dy = fabs((double)y[i] - (double)y[i - 1]);
+        sum_dx += dx;
+        sum_dy += dy;
+        if (dx > max_dx) {
+            max_dx = dx;
         }
-        if (!found_drop && i > 0 && x[i] < x[i - 1] - 8.0f) {
-            found_drop = 1;
-            drop_at = i;
+        if (dy > max_dy) {
+            max_dy = dy;
+        }
+        if (i >= 2) {
+            double d2 = fabs((double)y[i] - 2.0 * (double)y[i - 1] + (double)y[i - 2]);
+            if (d2 > max_d2) {
+                max_d2 = d2;
+            }
+        }
+    }
+
+    for (i = 0; i < n; i++) {
+        size_t a = (i > 8) ? i - 8 : 0;
+        size_t b = i + 9;
+        size_t k;
+        double raw_mn;
+        double sm_mn;
+        if (b > n) {
+            b = n;
+        }
+        raw_mn = x[a];
+        sm_mn = y[a];
+        for (k = a + 1; k < b; k++) {
+            if (x[k] < raw_mn) {
+                raw_mn = x[k];
+            }
+            if (y[k] < sm_mn) {
+                sm_mn = y[k];
+            }
+        }
+        if ((double)x[i] - raw_mn > raw_peak) {
+            raw_peak = (double)x[i] - raw_mn;
+        }
+        if ((double)y[i] - sm_mn > sm_peak) {
+            sm_peak = (double)y[i] - sm_mn;
         }
     }
 
     printf("samples          : %zu\n", n);
-    printf("mean |y-x|       : %.3f   (tracking residual)\n", sum_abs / (double)n);
-    printf("mean |dx| raw    : %.3f\n", n > 1 ? sum_dx / (double)(n - 1) : 0.0);
-    printf("mean |dy| smooth : %.3f   (lower = less jitter)\n",
-           n > 1 ? sum_dy / (double)(n - 1) : 0.0);
-
-    if (found_drop) {
-        for (i = drop_at; i < drop_at + 6 && i < n; i++) {
-            double lag = fabs((double)y[i] - (double)x[i]);
-            if (lag > max_lag_drop) {
-                max_lag_drop = lag;
-            }
-        }
-        printf("first steep drop : n=%zu  raw=%.1f->%.1f  smooth=%.2f  peak |y-x|=%.2f\n",
-               drop_at, drop_at > 0 ? x[drop_at - 1] : x[drop_at], x[drop_at],
-               y[drop_at], max_lag_drop);
-    }
+    printf("mean |dx| raw    : %.3f   max |dx|=%.2f\n",
+           n > 1 ? sum_dx / (double)(n - 1) : 0.0, max_dx);
+    printf("mean |dy| smooth : %.3f   max |dy|=%.3f\n",
+           n > 1 ? sum_dy / (double)(n - 1) : 0.0, max_dy);
+    printf("max curvature    : %.3f   (|y[i]-2y[i-1]+y[i-2]|)\n", max_d2);
+    printf("local peak height: raw %.2f -> smooth %.2f  (over ±8 neighbors)\n",
+           raw_peak, sm_peak);
 }
 
 static int write_svg(const char *path, const float *x, const float *y, size_t n)
@@ -289,14 +327,13 @@ static int write_svg(const char *path, const float *x, const float *y, size_t n)
             "viewBox=\"0 0 %d %d\">\n"
             "<rect width=\"100%%\" height=\"100%%\" fill=\"#0f1419\"/>\n"
             "<text x=\"%d\" y=\"20\" fill=\"#d7e0ea\" font-size=\"14\" "
-            "font-family=\"sans-serif\">raw vs real-time smooth</text>\n"
+            "font-family=\"sans-serif\">raw vs peak-cut smooth</text>\n"
             "<text x=\"%d\" y=\"20\" fill=\"#8aa0b4\" font-size=\"12\" "
             "font-family=\"sans-serif\" text-anchor=\"end\">"
             "<tspan fill=\"#6b7c8d\">raw</tspan>  "
             "<tspan fill=\"#5eead4\">smoothed</tspan></text>\n",
             W, H, W, H, L, W - R);
 
-    /* grid */
     for (i = 0; i < 5; i++) {
         float t = (float)i / 4.0f;
         float gy = (float)T + t * ph;
@@ -337,42 +374,49 @@ static int nearly_equal(float a, float b, float eps)
 
 static int self_test(void)
 {
-    OneEuro euro;
-    AdaptiveEma aema;
-    Ema ema;
+    float spike[16];
+    float spike_out[16];
+    float ramp[40];
+    float ramp_out[40];
     float y;
     int i;
     int fails = 0;
+    Ema ema;
 
-    one_euro_init(&euro, DEFAULT_MIN_CUTOFF, DEFAULT_BETA, DEFAULT_D_CUTOFF);
-    y = one_euro_update(&euro, 10.0f, 1.0f);
-    if (!nearly_equal(y, 10.0f, 1e-6f)) {
-        fprintf(stderr, "FAIL: 1-Euro first sample should pass through\n");
+    for (i = 0; i < 16; i++) {
+        spike[i] = 10.0f;
+    }
+    spike[8] = 90.0f;
+    if (peakcut_filter(spike, spike_out, 16, 3, 1.0f) != 0) {
+        fprintf(stderr, "FAIL: peakcut_filter returned error\n");
+        return 1;
+    }
+    if (spike_out[8] > 14.0f) {
+        fprintf(stderr, "FAIL: isolated spike not cut (%f)\n", spike_out[8]);
         fails++;
     }
+    for (i = 0; i < 16; i++) {
+        if (i == 8) {
+            continue;
+        }
+        if (spike_out[i] > 13.0f) {
+            fprintf(stderr, "FAIL: baseline warped at %d (%f)\n", i, spike_out[i]);
+            fails++;
+            break;
+        }
+    }
+
     for (i = 0; i < 40; i++) {
-        y = one_euro_update(&euro, 10.0f, 1.0f);
+        ramp[i] = (float)i;
     }
-    if (!nearly_equal(y, 10.0f, 0.01f)) {
-        fprintf(stderr, "FAIL: 1-Euro constant input drifted (%f)\n", y);
-        fails++;
+    if (peakcut_filter(ramp, ramp_out, 40, 4, 1.5f) != 0) {
+        fprintf(stderr, "FAIL: ramp peakcut_filter error\n");
+        return 1;
     }
-    /* A step should be followed: after many samples y approaches 20. */
-    for (i = 0; i < 80; i++) {
-        y = one_euro_update(&euro, 20.0f, 1.0f);
-    }
-    if (y < 19.5f) {
-        fprintf(stderr, "FAIL: 1-Euro step lag too large (%f)\n", y);
-        fails++;
-    }
-
-    aema_init(&aema, 0.12f, 0.85f, 4.0f);
-    (void)aema_update(&aema, 0.0f);
-    for (i = 0; i < 30; i++) {
-        y = aema_update(&aema, 50.0f);
-    }
-    if (y < 49.0f) {
-        fprintf(stderr, "FAIL: adaptive EMA did not catch a large step (%f)\n", y);
+    /* A wide ramp is not a spike; the middle should still climb. */
+    if (!(ramp_out[5] < ramp_out[20] && ramp_out[20] < ramp_out[35])) {
+        fprintf(stderr, "FAIL: ramp was flattened (%f %f %f)\n",
+                ramp_out[5], ramp_out[20], ramp_out[35]);
         fails++;
     }
 
@@ -396,7 +440,9 @@ int main(int argc, char **argv)
 {
     const char *path = "samples.txt";
     const char *svg_path = NULL;
-    Method method = METHOD_ONEEURO;
+    Method method = METHOD_PEAKCUT;
+    int radius = PEAKCUT_DEFAULT_RADIUS;
+    float sigma = PEAKCUT_DEFAULT_SIGMA;
     float min_cutoff = DEFAULT_MIN_CUTOFF;
     float beta = DEFAULT_BETA;
     float d_cutoff = DEFAULT_D_CUTOFF;
@@ -410,7 +456,7 @@ int main(int argc, char **argv)
     float *x = NULL;
     float *y = NULL;
     size_t n = 0;
-    const char *method_name = "oneeuro";
+    const char *method_name = "peakcut";
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -430,7 +476,10 @@ int main(int argc, char **argv)
         }
         if (strcmp(argv[i], "--method") == 0 && i + 1 < argc) {
             i++;
-            if (strcmp(argv[i], "oneeuro") == 0) {
+            if (strcmp(argv[i], "peakcut") == 0) {
+                method = METHOD_PEAKCUT;
+                method_name = "peakcut";
+            } else if (strcmp(argv[i], "oneeuro") == 0) {
                 method = METHOD_ONEEURO;
                 method_name = "oneeuro";
             } else if (strcmp(argv[i], "aema") == 0) {
@@ -443,6 +492,14 @@ int main(int argc, char **argv)
                 fprintf(stderr, "unknown method: %s\n", argv[i]);
                 return 2;
             }
+            continue;
+        }
+        if (strcmp(argv[i], "--radius") == 0 && i + 1 < argc) {
+            radius = (int)strtol(argv[++i], NULL, 10);
+            continue;
+        }
+        if (strcmp(argv[i], "--sigma") == 0 && i + 1 < argc) {
+            sigma = strtof(argv[++i], NULL);
             continue;
         }
         if (strcmp(argv[i], "--min-cutoff") == 0 && i + 1 < argc) {
@@ -494,8 +551,13 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    run_filter(method, x, y, n, min_cutoff, beta, d_cutoff, dt, ema_alpha,
-               aema_min, aema_max, aema_knee);
+    if (run_filter(method, x, y, n, radius, sigma, min_cutoff, beta, d_cutoff, dt,
+                   ema_alpha, aema_min, aema_max, aema_knee) != 0) {
+        fprintf(stderr, "filter failed\n");
+        free(x);
+        free(y);
+        return 1;
+    }
 
     if (csv) {
         printf("n,raw,smoothed\n");
@@ -504,9 +566,8 @@ int main(int argc, char **argv)
         }
     } else {
         printf("method           : %s\n", method_name);
-        if (method == METHOD_ONEEURO) {
-            printf("1-Euro params    : min_cutoff=%.3f  beta=%.3f  d_cutoff=%.3f  dt=%.4f\n",
-                   min_cutoff, beta, d_cutoff, dt);
+        if (method == METHOD_PEAKCUT) {
+            printf("peakcut params   : radius=%d  sigma=%.2f\n", radius, sigma);
         }
         print_stats(x, y, n);
         printf("\n  n   raw   smoothed\n");

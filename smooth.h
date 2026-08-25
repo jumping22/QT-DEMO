@@ -1,41 +1,51 @@
 #ifndef SMOOTH_H
 #define SMOOTH_H
 
+#include <stddef.h>
+
 /*
- * Causal, O(1)-per-sample smoothers for real-time streams.
+ * Peak-cutting smoother: morphological opening (cuts narrow spikes)
+ * followed by a Gaussian low-pass (makes a C-ish curve).
  *
- * All filters use only the current sample and a few words of state.
- * There is no lookahead, no window copy, and no heap in the hot path.
+ * Opening with radius R removes peaks narrower than 2R+1 samples and
+ * leaves slower trends (the two wide valleys in the demo series).
  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#define PEAKCUT_DEFAULT_RADIUS 8
+#define PEAKCUT_DEFAULT_SIGMA  4.0f
+#define PEAKCUT_MAX_RADIUS     48
+#define PEAKCUT_MAX_SIGMA      16.0f
+
+/* y may alias x. Returns 0 on success, -1 on bad args / OOM. */
+int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
+
 typedef struct {
-    float min_cutoff; /* Hz-like cutoff when the signal is slow (dt=1 => per-sample) */
-    float beta;       /* speed adaptation: higher = less lag on fast edges */
-    float d_cutoff;   /* cutoff used to filter the derivative */
-    float x_hat;      /* last smoothed value */
-    float dx_hat;     /* last smoothed derivative */
+    float min_cutoff;
+    float beta;
+    float d_cutoff;
+    float x_hat;
+    float dx_hat;
     int initialized;
 } OneEuro;
 
 typedef struct {
-    float min_alpha;  /* smoothing when |error| is small, (0, 1] */
-    float max_alpha;  /* smoothing when |error| is large, (0, 1] */
-    float knee;       /* error (same units as x) at which alpha is mid-range */
+    float min_alpha;
+    float max_alpha;
+    float knee;
     float y;
     int initialized;
 } AdaptiveEma;
 
 typedef struct {
-    float alpha;      /* (0, 1], 1 = no smoothing */
+    float alpha;
     float y;
     int initialized;
 } Ema;
 
-/* min_cutoff=0.02, beta=0.08, d_cutoff=1.0 is a low-lag default when dt=1. */
 void one_euro_init(OneEuro *f, float min_cutoff, float beta, float d_cutoff);
 float one_euro_update(OneEuro *f, float x, float dt);
 
