@@ -186,51 +186,99 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
     if (s->leak < 0.010f) {
         s->leak = 0.010f;
     }
-    s->st_min = 2.3f - 0.16f * sigma;
-    if (s->st_min > 2.2f) {
-        s->st_min = 2.2f;
+    /*
+     * Online min-jerk horizon. T grows with |vel| so a locked cruise
+     * cannot form: faster motion plans a longer stop, which bends the
+     * slope. v_soft stretches T on large errors so peak |Δy| stays
+     * bounded without clipping to a constant increment.
+     */
+    s->t_min = 18.0f + 2.8f * sigma;
+    if (s->t_min < 16.0f) {
+        s->t_min = 16.0f;
     }
-    if (s->st_min < 1.2f) {
-        s->st_min = 1.2f;
+    if (s->t_min > 56.0f) {
+        s->t_min = 56.0f;
     }
-    s->st_max = 8.0f + 1.6f * sigma;
-    if (s->st_max > 24.0f) {
-        s->st_max = 24.0f;
+    s->t_kv = 35.0f + 5.0f * sigma;
+    if (s->t_kv < 30.0f) {
+        s->t_kv = 30.0f;
     }
-    s->knee = 4.0f + 0.8f * sigma;
-    s->down_st = 0.58f - 0.032f * sigma;
-    if (s->down_st > 0.55f) {
-        s->down_st = 0.55f;
+    if (s->t_kv > 90.0f) {
+        s->t_kv = 90.0f;
     }
-    if (s->down_st < 0.38f) {
-        s->down_st = 0.38f;
+    s->v_soft = 0.55f + 0.060f * sigma;
+    if (s->v_soft < 0.50f) {
+        s->v_soft = 0.50f;
+    }
+    if (s->v_soft > 0.95f) {
+        s->v_soft = 0.95f;
+    }
+    s->t_max = 70.0f + 16.0f * sigma;
+    if (s->t_max < 96.0f) {
+        s->t_max = 96.0f;
+    }
+    if (s->t_max > 240.0f) {
+        s->t_max = 240.0f;
     }
     /* Local range below this while close to y → leave sticky follow. */
     s->settle_span = 4.0f + 0.6f * sigma;
     s->settle_need = 6;
 }
 
-/* Unity / Game Programming Gems 4 critically-damped smoother. dt = 1 sample. */
-static float smooth_damp(float current, float target, float *vel, float smooth_time)
+/*
+ * One sample of a 5th-order rest-to-rest plan from (y, vel, acc)
+ * to (dest, 0, 0) in time T. Replanned every sample; T is never a
+ * hard speed clip, so Δy keeps changing (S-curve, not a straight ramp).
+ */
+static float follow_minjerk(PeakCutStream *s, float dest)
 {
-    float omega;
-    float x;
-    float exp2;
-    float change;
-    float temp;
-    float out;
+    double y = (double)s->y;
+    double v = (double)s->vel;
+    double a = (double)s->acc;
+    double e = (double)dest - y;
+    double av = v >= 0.0 ? v : -v;
+    double ae = e >= 0.0 ? e : -e;
+    double T;
+    double T2;
+    double T3;
+    double T4;
+    double T5;
+    double c3;
+    double c4;
+    double c5;
+    double yn;
+    double vn;
+    double an;
 
-    if (smooth_time < 0.4f) {
-        smooth_time = 0.4f;
+    T = (double)s->t_min + (double)s->t_kv * av;
+    if (s->v_soft > 1e-6f && ae > 1e-9) {
+        double t_span = 1.875 * ae / (double)s->v_soft;
+        if (t_span > T) {
+            T = t_span;
+        }
     }
-    omega = 2.0f / smooth_time;
-    x = omega; /* dt = 1 */
-    exp2 = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
-    change = current - target;
-    temp = (*vel + omega * change);
-    *vel = (*vel - omega * temp) * exp2;
-    out = target + (change + temp) * exp2;
-    return out;
+    if (T > (double)s->t_max) {
+        T = (double)s->t_max;
+    }
+    if (T < 4.0) {
+        T = 4.0;
+    }
+
+    T2 = T * T;
+    T3 = T2 * T;
+    T4 = T3 * T;
+    T5 = T4 * T;
+    c3 = (20.0 * e - 12.0 * v * T - 3.0 * a * T2) / (2.0 * T3);
+    c4 = (-30.0 * e + 16.0 * v * T + 3.0 * a * T2) / (2.0 * T4);
+    c5 = (12.0 * e - 6.0 * v * T - a * T2) / (2.0 * T5);
+    yn = y + v + 0.5 * a + c3 + c4 + c5;
+    vn = v + a + 3.0 * c3 + 4.0 * c4 + 5.0 * c5;
+    an = a + 6.0 * c3 + 12.0 * c4 + 20.0 * c5;
+
+    s->y = (float)yn;
+    s->vel = (float)vn;
+    s->acc = (float)an;
+    return s->y;
 }
 
 static void hist_reset(PeakCutStream *s)
@@ -293,10 +341,6 @@ static void enter_sticky(PeakCutStream *s, float x)
 float peakcut_stream_update(PeakCutStream *s, float x)
 {
     float gated;
-    float err;
-    float aerr;
-    float mix;
-    float st;
     float d;
     float ad;
     int need;
@@ -306,6 +350,7 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         s->initialized = 1;
         s->y = x;
         s->vel = 0.0f;
+        s->acc = 0.0f;
         s->up_count = 0;
         s->dn_count = 0;
         s->sticky = 0;
@@ -358,15 +403,7 @@ float peakcut_stream_update(PeakCutStream *s, float x)
         }
     }
 
-    err = gated - s->y;
-    aerr = err >= 0.0f ? err : -err;
-    mix = aerr / (aerr + s->knee);
-    st = s->st_max + (s->st_min - s->st_max) * mix;
-    if (err < 0.0f) {
-        st *= s->down_st;
-    }
-    s->y = smooth_damp(s->y, gated, &s->vel, st);
-    return s->y;
+    return follow_minjerk(s, gated);
 }
 
 static float alpha_from_cutoff(float cutoff, float dt)

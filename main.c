@@ -37,8 +37,8 @@ static void usage(const char *argv0)
             "  --radius R                  Medium-move confirm hold (default: %d).\n"
             "                              Must exceed the longest periodic tooth;\n"
             "                              large steps still confirm after 2 samples\n"
-            "  --sigma S                   Plateau roundness (default: %.1f).\n"
-            "                              Larger is smoother on flats; drops stay fast\n"
+            "  --sigma S                   Transition roundness (default: %.1f).\n"
+            "                              Larger = longer min-jerk horizon, rounder S-curves\n"
             "  --offline                   Batch peak-cut (uses future samples)\n"
             "  --live                      Read numbers from stdin as they arrive\n"
             "  --min-cutoff F --beta B --d-cutoff F --dt T\n"
@@ -480,7 +480,7 @@ static int self_test(void)
             }
             last = yi;
         }
-        if (last < 8.0f) {
+        if (last < 2.5f) {
             fprintf(stderr, "FAIL: stream ramp did not rise (%f)\n", last);
             fails++;
         }
@@ -489,12 +489,97 @@ static int self_test(void)
         for (i = 0; i < 25; i++) {
             last = peakcut_stream_update(&st, 80.0f);
         }
-        last = peakcut_stream_update(&st, 50.0f);
-        last = peakcut_stream_update(&st, 40.0f);
-        last = peakcut_stream_update(&st, 30.0f);
-        if (last > 58.0f) {
-            fprintf(stderr, "FAIL: stream drop lag too large (%f)\n", last);
-            fails++;
+        {
+            float prev = last;
+            float max_dy = 0.0f;
+            for (i = 0; i < 100; i++) {
+                float yi = peakcut_stream_update(&st, 30.0f);
+                float dy = yi - prev;
+                if (dy < 0.0f) {
+                    dy = -dy;
+                }
+                if (dy > max_dy) {
+                    max_dy = dy;
+                }
+                last = yi;
+                prev = yi;
+            }
+            if (max_dy > 0.95f) {
+                fprintf(stderr, "FAIL: stream drop too steep (max |dy|=%f)\n", max_dy);
+                fails++;
+            }
+            if (last > 45.0f) {
+                fprintf(stderr, "FAIL: stream drop did not follow (%f)\n", last);
+                fails++;
+            }
+        }
+
+        /* A large step must ease in: successive |dy| increases at the start. */
+        peakcut_stream_init(&st, 16, 5.0f);
+        for (i = 0; i < 20; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        {
+            float prev = last;
+            float dya[8];
+            int ok = 1;
+            for (i = 0; i < 8; i++) {
+                last = peakcut_stream_update(&st, 90.0f);
+                dya[i] = last - prev;
+                prev = last;
+            }
+            /* Skip the 2-sample confirm; then slope must keep rising for a bit. */
+            if (!(dya[3] > dya[2] + 0.004f && dya[4] > dya[3] + 0.004f &&
+                  dya[5] > dya[4] + 0.004f)) {
+                fprintf(stderr, "FAIL: step did not ease in (%.3f %.3f %.3f %.3f %.3f %.3f)\n",
+                        dya[0], dya[1], dya[2], dya[3], dya[4], dya[5]);
+                fails++;
+                ok = 0;
+            }
+            for (i = 0; i < 8; i++) {
+                if (dya[i] > 0.95f) {
+                    fprintf(stderr, "FAIL: step too steep at %d (%f)\n", i, dya[i]);
+                    fails++;
+                    ok = 0;
+                    break;
+                }
+            }
+            (void)ok;
+        }
+
+        /* A long catch-up must not lock to a constant slope (straight ramp). */
+        peakcut_stream_init(&st, 16, 5.0f);
+        for (i = 0; i < 20; i++) {
+            last = peakcut_stream_update(&st, 10.0f);
+        }
+        {
+            float prev = last;
+            int locked = 0;
+            int run = 0;
+            float prev_dy = 0.0f;
+            for (i = 0; i < 160; i++) {
+                float yi = peakcut_stream_update(&st, 90.0f);
+                float dy = yi - prev;
+                if (i > 4 && fabsf(dy) > 0.08f && fabsf(dy - prev_dy) < 1e-5f) {
+                    run++;
+                    if (run >= 6) {
+                        locked = 1;
+                    }
+                } else {
+                    run = 0;
+                }
+                prev_dy = dy;
+                prev = yi;
+                last = yi;
+            }
+            if (locked) {
+                fprintf(stderr, "FAIL: step locked to a straight-line slope\n");
+                fails++;
+            }
+            if (last < 70.0f) {
+                fprintf(stderr, "FAIL: long step did not arrive (%f)\n", last);
+                fails++;
+            }
         }
 
         /* Two-sided gate: a 16-sample sawtooth on a plateau must not be followed. */

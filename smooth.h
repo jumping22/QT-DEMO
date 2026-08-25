@@ -20,9 +20,10 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
  * Real-time smoother: one output per input, O(1), no lookahead.
  *
  * 1) Two-sided deadband + duration gate: ignore short oscillations
- *    in BOTH directions; large moves confirm after 2 samples.
- * 2) Critically damped SmoothDamp toward the gated target so the
- *    polyline is C1-smooth (no kinks when the gate switches).
+ *    in both directions; large moves confirm after 2 samples.
+ * 2) Online min-jerk (5th-order) toward the gated target: velocity
+ *    is a bell curve, so position is an S with no constant-slope
+ *    (straight-line) segments and no single-sample jumps.
  */
 typedef struct {
     int hold;
@@ -30,14 +31,15 @@ typedef struct {
     float big_up;
     float big_dn;
     float leak;
-    float st_min;
-    float st_max;
-    float knee;
-    float down_st;
+    float t_min;
+    float t_kv;
+    float t_max;
+    float v_soft;
     float settle_span;
     int settle_need;
     float y;
     float vel;
+    float acc;
     float hist[PEAKCUT_MAX_RADIUS];
     int hist_len;
     int hist_pos;
