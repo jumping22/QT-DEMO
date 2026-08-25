@@ -7,11 +7,11 @@
 extern "C" {
 #endif
 
-#define PEAKCUT_DEFAULT_RADIUS 7
+#define PEAKCUT_DEFAULT_RADIUS 16
 #define PEAKCUT_DEFAULT_SIGMA  5.0f
 #define PEAKCUT_MAX_RADIUS     48
 #define PEAKCUT_MAX_SIGMA      16.0f
-#define PEAKCUT_DEFAULT_MARGIN 3.0f
+#define PEAKCUT_DEFAULT_MARGIN 6.0f
 
 /* Offline (uses future samples). y may alias x. 0 on success, -1 on error. */
 int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
@@ -19,21 +19,32 @@ int peakcut_filter(const float *x, float *y, size_t n, int radius, float sigma);
 /*
  * Real-time smoother: one output per input, O(1), no lookahead.
  *
- * 1) Duration gate: short upward bursts are spikes and are not tracked.
- * 2) Adaptive 3-pole low-pass: heavy when the error is small (smooth
- *    plateaus), light when the error is large (follow real drops).
+ * 1) Two-sided deadband + duration gate: ignore short oscillations
+ *    in BOTH directions; large moves confirm after 2 samples.
+ * 2) Critically damped SmoothDamp toward the gated target so the
+ *    polyline is C1-smooth (no kinks when the gate switches).
  */
 typedef struct {
     int hold;
-    float margin;
-    float amin;
-    float amax;
+    float dead;
+    float big_up;
+    float big_dn;
+    float leak;
+    float st_min;
+    float st_max;
     float knee;
-    float z1;
-    float z2;
-    float z3;
+    float down_st;
+    float settle_span;
+    int settle_need;
     float y;
-    int high_count;
+    float vel;
+    float hist[PEAKCUT_MAX_RADIUS];
+    int hist_len;
+    int hist_pos;
+    int sticky;
+    int settle_count;
+    int up_count;
+    int dn_count;
     int initialized;
 } PeakCutStream;
 

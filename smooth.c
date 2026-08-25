@@ -175,20 +175,119 @@ void peakcut_stream_init(PeakCutStream *s, int radius, float sigma)
         sigma = PEAKCUT_MAX_SIGMA;
     }
     s->hold = radius;
-    s->margin = PEAKCUT_DEFAULT_MARGIN;
-    /* Larger sigma → smaller amin → rounder plateaus. Drops still use amax. */
-    s->amin = 0.20f / sigma;
-    if (s->amin > 0.08f) {
-        s->amin = 0.08f;
+    /* Deadband covers typical tooth height so the gate never arms on a plateau. */
+    s->dead = 3.5f + 0.5f * sigma;
+    s->big_up = 8.0f + sigma;
+    s->big_dn = 6.0f + 0.8f * sigma;
+    s->leak = 0.06f / sigma;
+    if (s->leak > 0.035f) {
+        s->leak = 0.035f;
     }
-    if (s->amin < 0.022f) {
-        s->amin = 0.022f;
+    if (s->leak < 0.010f) {
+        s->leak = 0.010f;
     }
-    s->amax = 0.58f + 0.014f * sigma;
-    if (s->amax > 0.85f) {
-        s->amax = 0.85f;
+    s->st_min = 2.3f - 0.16f * sigma;
+    if (s->st_min > 2.2f) {
+        s->st_min = 2.2f;
     }
-    s->knee = 2.2f + 0.32f * sigma;
+    if (s->st_min < 1.2f) {
+        s->st_min = 1.2f;
+    }
+    s->st_max = 8.0f + 1.6f * sigma;
+    if (s->st_max > 24.0f) {
+        s->st_max = 24.0f;
+    }
+    s->knee = 4.0f + 0.8f * sigma;
+    s->down_st = 0.58f - 0.032f * sigma;
+    if (s->down_st > 0.55f) {
+        s->down_st = 0.55f;
+    }
+    if (s->down_st < 0.38f) {
+        s->down_st = 0.38f;
+    }
+    /* Local range below this while close to y → leave sticky follow. */
+    s->settle_span = 4.0f + 0.6f * sigma;
+    s->settle_need = 6;
+}
+
+/* Unity / Game Programming Gems 4 critically-damped smoother. dt = 1 sample. */
+static float smooth_damp(float current, float target, float *vel, float smooth_time)
+{
+    float omega;
+    float x;
+    float exp2;
+    float change;
+    float temp;
+    float out;
+
+    if (smooth_time < 0.4f) {
+        smooth_time = 0.4f;
+    }
+    omega = 2.0f / smooth_time;
+    x = omega; /* dt = 1 */
+    exp2 = 1.0f / (1.0f + x + 0.48f * x * x + 0.235f * x * x * x);
+    change = current - target;
+    temp = (*vel + omega * change);
+    *vel = (*vel - omega * temp) * exp2;
+    out = target + (change + temp) * exp2;
+    return out;
+}
+
+static void hist_reset(PeakCutStream *s)
+{
+    s->hist_len = 0;
+    s->hist_pos = 0;
+    s->settle_count = 0;
+}
+
+static void hist_push(PeakCutStream *s, float x)
+{
+    int cap = s->hold;
+    if (cap < 1) {
+        cap = 1;
+    }
+    if (cap > PEAKCUT_MAX_RADIUS) {
+        cap = PEAKCUT_MAX_RADIUS;
+    }
+    s->hist[s->hist_pos] = x;
+    s->hist_pos++;
+    if (s->hist_pos >= cap) {
+        s->hist_pos = 0;
+    }
+    if (s->hist_len < cap) {
+        s->hist_len++;
+    }
+}
+
+static float hist_range(const PeakCutStream *s)
+{
+    int i;
+    float mn;
+    float mx;
+
+    if (s->hist_len <= 0) {
+        return 0.0f;
+    }
+    mn = s->hist[0];
+    mx = s->hist[0];
+    for (i = 1; i < s->hist_len; i++) {
+        if (s->hist[i] < mn) {
+            mn = s->hist[i];
+        }
+        if (s->hist[i] > mx) {
+            mx = s->hist[i];
+        }
+    }
+    return mx - mn;
+}
+
+static void enter_sticky(PeakCutStream *s, float x)
+{
+    s->sticky = 1;
+    s->up_count = 0;
+    s->dn_count = 0;
+    hist_reset(s);
+    hist_push(s, x);
 }
 
 float peakcut_stream_update(PeakCutStream *s, float x)
@@ -197,51 +296,76 @@ float peakcut_stream_update(PeakCutStream *s, float x)
     float err;
     float aerr;
     float mix;
-    float a;
+    float st;
+    float d;
+    float ad;
+    int need;
+    int confirmed;
 
     if (!s->initialized) {
         s->initialized = 1;
-        s->z1 = x;
-        s->z2 = x;
-        s->z3 = x;
         s->y = x;
-        s->high_count = 0;
+        s->vel = 0.0f;
+        s->up_count = 0;
+        s->dn_count = 0;
+        s->sticky = 0;
+        hist_reset(s);
         return x;
     }
 
-    /* Duration gate: ignore short upward bursts, pass drops immediately. */
-    if (x > s->y + s->margin) {
-        s->high_count++;
-        if (s->high_count >= s->hold) {
-            gated = x;
-        } else {
-            gated = s->y + 0.08f * (x - s->y);
-        }
-    } else {
-        s->high_count = 0;
-        gated = x;
-    }
+    d = x - s->y;
+    ad = d >= 0.0f ? d : -d;
 
     /*
-     * Adaptive 3-pole: mix→0 on a plateau (use amin, round curve),
-     * mix→1 on a large move (use amax, keep up). Downward moves get
-     * a slightly larger alpha so real drops stay timely.
+     * Sticky follow: after a real move is confirmed, keep tracking x
+     * until the recent window looks like a plateau (small range and
+     * close to y). That stops the deadband from staircase-catching
+     * on ramps: one confirm, then a continuous follow to the next flat.
      */
+    if (s->sticky) {
+        gated = x;
+        hist_push(s, x);
+        if (hist_range(s) <= s->settle_span && ad <= s->dead) {
+            s->settle_count++;
+        } else {
+            s->settle_count = 0;
+        }
+        if (s->settle_count >= s->settle_need) {
+            s->sticky = 0;
+            hist_reset(s);
+        }
+    } else {
+        confirmed = 0;
+        if (ad <= s->dead) {
+            s->up_count = 0;
+            s->dn_count = 0;
+            gated = s->y + s->leak * d;
+        } else if (d > 0.0f) {
+            s->up_count++;
+            s->dn_count = 0;
+            need = (d >= s->big_up) ? 2 : s->hold;
+            confirmed = s->up_count >= need;
+            gated = confirmed ? x : (s->y + s->leak * d);
+        } else {
+            s->dn_count++;
+            s->up_count = 0;
+            need = ((-d) >= s->big_dn) ? 2 : s->hold;
+            confirmed = s->dn_count >= need;
+            gated = confirmed ? x : (s->y + s->leak * d);
+        }
+        if (confirmed) {
+            enter_sticky(s, x);
+        }
+    }
+
     err = gated - s->y;
     aerr = err >= 0.0f ? err : -err;
     mix = aerr / (aerr + s->knee);
-    a = s->amin + (s->amax - s->amin) * mix;
+    st = s->st_max + (s->st_min - s->st_max) * mix;
     if (err < 0.0f) {
-        a *= 1.18f;
-        if (a > 1.0f) {
-            a = 1.0f;
-        }
+        st *= s->down_st;
     }
-
-    s->z1 += a * (gated - s->z1);
-    s->z2 += a * (s->z1 - s->z2);
-    s->z3 += a * (s->z2 - s->z3);
-    s->y = s->z3;
+    s->y = smooth_damp(s->y, gated, &s->vel, st);
     return s->y;
 }
 

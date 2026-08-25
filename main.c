@@ -34,9 +34,9 @@ static void usage(const char *argv0)
             "Options:\n"
             "  --method peakcut|oneeuro|aema|ema\n"
             "                              Default: peakcut (streaming)\n"
-            "  --radius R                  Spike hold in samples (default: %d).\n"
-            "                              Wider peaks need a larger R; confirmed\n"
-            "                              rises wait this many samples\n"
+            "  --radius R                  Medium-move confirm hold (default: %d).\n"
+            "                              Must exceed the longest periodic tooth;\n"
+            "                              large steps still confirm after 2 samples\n"
             "  --sigma S                   Plateau roundness (default: %.1f).\n"
             "                              Larger is smoother on flats; drops stay fast\n"
             "  --offline                   Batch peak-cut (uses future samples)\n"
@@ -495,6 +495,31 @@ static int self_test(void)
         if (last > 58.0f) {
             fprintf(stderr, "FAIL: stream drop lag too large (%f)\n", last);
             fails++;
+        }
+
+        /* Two-sided gate: a 16-sample sawtooth on a plateau must not be followed. */
+        peakcut_stream_init(&st, 16, 5.0f);
+        for (i = 0; i < 40; i++) {
+            last = peakcut_stream_update(&st, 88.0f);
+        }
+        {
+            float plat_min = last;
+            float plat_max = last;
+            for (i = 0; i < 80; i++) {
+                float tooth = (i % 16 < 8) ? 94.0f : 82.0f;
+                last = peakcut_stream_update(&st, tooth);
+                if (last < plat_min) {
+                    plat_min = last;
+                }
+                if (last > plat_max) {
+                    plat_max = last;
+                }
+            }
+            if (plat_max - plat_min > 3.0f) {
+                fprintf(stderr, "FAIL: plateau sawtooth not flattened (%f .. %f)\n",
+                        plat_min, plat_max);
+                fails++;
+            }
         }
     }
 
