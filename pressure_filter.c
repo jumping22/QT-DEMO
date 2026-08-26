@@ -51,7 +51,7 @@ void pressure_filter_init_ex(PressureFilter *f, int hold, float smoothness)
     f->t_sqrt = clampf(3.4f + 0.22f * smoothness, 3.0f, 6.0f);
     f->t_max = clampf(28.0f + 2.4f * smoothness, 32.0f, 56.0f);
     f->j_max = clampf(0.072f - 0.0044f * smoothness, 0.032f, 0.070f);
-    f->v_beta = 0.30f;
+    f->v_beta = 0.35f;
     f->v_lim = 1.6f;
     f->settle_span = 4.0f + 0.6f * smoothness;
     f->settle_need = 6;
@@ -60,6 +60,19 @@ void pressure_filter_init_ex(PressureFilter *f, int hold, float smoothness)
     f->slow_alpha = 0.018f;
     f->trend_eps = 2.2f;
     f->cruise = 0.18f;
+    /*
+     * Catch-up on large rise/drop error (still causal):
+     * shrink T, lead dest by dest_vel, mildly raise j_max / v_lim.
+     * Only engages when |error| is already large, so plateaus stay quiet.
+     */
+    f->catch_on = 15.0f;
+    f->catch_ref = 55.0f;
+    f->lead_on = 10.0f;
+    f->lead_gain = 8.0f;
+    f->j_boost_on = 80.0f;
+    f->j_boost_ref = 60.0f;
+    f->j_boost_max = 2.0f;
+    f->v_lim_hi = 3.0f;
 }
 
 static void hist_reset(PressureFilter *f)
@@ -145,6 +158,12 @@ static float follow_minjerk(PressureFilter *f, float dest, int trend_live)
     float j;
     float dd;
     float dv;
+    float jmax;
+    float lim;
+    float lead;
+    float aim;
+    float shrink;
+    float boost;
 
     dd = dest - f->dest_prev;
     if (f->sticky) {
@@ -152,7 +171,8 @@ static float follow_minjerk(PressureFilter *f, float dest, int trend_live)
             dv = 0.0f;
         } else {
             dv = f->dest_vel + f->v_beta * (dd - f->dest_vel);
-            dv = clampf(dv, -f->v_lim, f->v_lim);
+            lim = (ae > f->lead_on) ? f->v_lim_hi : f->v_lim;
+            dv = clampf(dv, -lim, lim);
         }
         if (trend_live) {
             if (f->move_dir > 0 && dv < f->cruise) {
@@ -169,12 +189,37 @@ static float follow_minjerk(PressureFilter *f, float dest, int trend_live)
     }
     f->dest_prev = dest;
 
+    /*
+     * Phase lead: aim a few samples ahead of a moving dest using dest_vel.
+     * Does not read future raw samples.
+     */
+    aim = dest;
+    if (f->sticky && ae > f->lead_on && (vT > 0.02f || vT < -0.02f)) {
+        lead = f->lead_gain * (ae / (ae + 25.0f));
+        aim = dest + lead * vT;
+        e = aim - y;
+        ae = (e >= 0.0f) ? e : -e;
+    }
+
     T = f->t_min + f->t_sqrt * sqrtf(ae);
+    if (f->sticky && ae > f->catch_on) {
+        shrink = 1.0f / (1.0f + (ae - f->catch_on) / f->catch_ref);
+        T = 6.5f + (T - 6.5f) * shrink;
+    }
     if (T > f->t_max) {
         T = f->t_max;
     }
-    if (T < 6.0f) {
-        T = 6.0f;
+    if (T < 6.5f) {
+        T = 6.5f;
+    }
+
+    jmax = f->j_max;
+    if (f->sticky && ae > f->j_boost_on) {
+        boost = 1.0f + (ae - f->j_boost_on) / f->j_boost_ref;
+        if (boost > f->j_boost_max) {
+            boost = f->j_boost_max;
+        }
+        jmax = f->j_max * boost;
     }
 
     T2 = T * T;
@@ -189,11 +234,11 @@ static float follow_minjerk(PressureFilter *f, float dest, int trend_live)
     an = a + 6.0f * c3 + 12.0f * c4 + 20.0f * c5;
 
     j = an - a;
-    if (j > f->j_max || j < -f->j_max) {
-        if (j > f->j_max) {
-            j = f->j_max;
+    if (j > jmax || j < -jmax) {
+        if (j > jmax) {
+            j = jmax;
         } else {
-            j = -f->j_max;
+            j = -jmax;
         }
         an = a + j;
         vn = v + an;

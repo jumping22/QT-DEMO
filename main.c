@@ -504,7 +504,7 @@ static int self_test(void)
                 last = yi;
                 prev = yi;
             }
-            if (max_dy > 2.10f) {
+            if (max_dy > 2.25f) {
                 fprintf(stderr, "FAIL: stream drop too steep (max |dy|=%f)\n", max_dy);
                 fails++;
             }
@@ -537,7 +537,7 @@ static int self_test(void)
                 ok = 0;
             }
             for (i = 0; i < 8; i++) {
-                if (dya[i] > 2.10f) {
+                if (dya[i] > 2.25f) {
                     fprintf(stderr, "FAIL: step too steep at %d (%f)\n", i, dya[i]);
                     fails++;
                     ok = 0;

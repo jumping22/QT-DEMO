@@ -59,6 +59,14 @@ typedef struct {
     float cruise;
     float ignore_up;
     float ignore_dn;
+    float catch_on;
+    float catch_ref;
+    float lead_on;
+    float lead_gain;
+    float j_boost_on;
+    float j_boost_ref;
+    float j_boost_max;
+    float v_lim_hi;
     float y;
     float vel;
     float acc;
