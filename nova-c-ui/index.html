@@ -6,123 +6,130 @@
 <title>Nova-C 样式演示</title>
 <style>
   :root {
-    --bg: #0d1522;
-    --header: #162033;
-    --panel: #1c2b40;
-    --panel-2: #26364e;
-    --inset: #152232;
-    --line: rgba(186, 214, 236, 0.16);
-    --text: #f5f8fc;
-    --muted: #b7c6d8;
-    --faint: #8ea0b6;
-    --accent: #2ad4c8;
-    --accent-ink: #042422;
-    --cm: #2ad4c8;
-    --nacl: #8fd0f5;
-    --inject: #7ef6ee;
-    --danger: #ff5c66;
-    --ready-bg: #3c516c;
-    --run-bg: #4d6582;
-    --stop-bg: #182433;
+    --bg: #d7e4ef;
+    --header: #f3f8fc;
+    --panel: #f8fbfd;
+    --panel-2: #e7f1f7;
+    --inset: #e4eef5;
+    --line: rgba(36, 78, 108, 0.14);
+    --text: #173246;
+    --muted: #4c677b;
+    --faint: #6d8496;
+    --accent: #129e97;
+    --accent-ink: #ffffff;
+    --cm: #0d8c86;
+    --nacl: #2b74a8;
+    --inject: #ffffff;
+    --danger: #d23b48;
+    --ready-bg: #3f7f90;
+    --run-bg: #149e97;
+    --stop-bg: #f8eef0;
     --act-line: transparent;
     --ready-ink: #ffffff;
-    --syringe: #f7f9fc;
-    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
-    --radius: 6px;
-    --radius-sm: 4px;
-    --fs: 13px;
-    --fs-title: 14px;
-    --fs-brand: 22px;
-    --fs-act: 20px;
-    --fs-timer: 40px;
-    --lh: 1.25;
-    --track: -0.012em;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f4f8fb;
+    --syringe-lo: #dfe8f0;
+    --shadow: 0 10px 24px rgba(42, 78, 108, 0.10);
+    --radius: 14px;
+    --radius-sm: 11px;
+    --fs: 16px;
+    --fs-title: 18px;
+    --fs-brand: 26px;
+    --fs-act: 22px;
+    --fs-timer: 42px;
+    --lh: 1.35;
+    --track: 0;
     --gap: 8px;
-    --pad: 12px;
-    --icon-stroke: 1.7;
-    --icon-cap: square;
-    --icon-join: miter;
+    --pad: 14px;
+    --icon-stroke: 1.6;
+    --icon-cap: round;
+    --icon-join: round;
     --num: "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html[data-theme="soft"] {
-    --bg: #5a6e88;
-    --header: #677c98;
-    --panel: #7086a4;
-    --panel-2: #7d94b2;
-    --inset: #627894;
-    --line: transparent;
-    --text: #fbfcff;
-    --muted: #e7eef7;
-    --faint: #d5e1ef;
-    --accent: #d4ec62;
-    --accent-ink: #283306;
-    --cm: #d4ec62;
-    --nacl: #e8f4ff;
-    --inject: #d9f7c4;
-    --danger: #ffb4b8;
-    --ready-bg: #849ab4;
-    --run-bg: #8ea6c0;
-    --stop-bg: #617894;
+    --bg: #e7eef3;
+    --header: #f7fafc;
+    --panel: #ffffff;
+    --panel-2: #f3f7fa;
+    --inset: #eef3f7;
+    --line: rgba(48, 78, 102, 0.08);
+    --text: #243848;
+    --muted: #5a7284;
+    --faint: #7b90a0;
+    --accent: #c5e056;
+    --accent-ink: #243306;
+    --cm: #5f9214;
+    --nacl: #3d7eab;
+    --inject: #243306;
+    --danger: #d4535c;
+    --ready-bg: #6f9bb4;
+    --run-bg: #b7d84e;
+    --stop-bg: #fff6f7;
     --act-line: transparent;
     --ready-ink: #ffffff;
-    --syringe: #fbfcff;
-    --shadow: 0 10px 24px rgba(28, 42, 64, 0.16);
-    --radius: 18px;
-    --radius-sm: 14px;
-    --fs: 14.5px;
-    --fs-title: 15.5px;
-    --fs-brand: 24px;
-    --fs-act: 21px;
-    --fs-timer: 44px;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f7fafc;
+    --syringe-lo: #e6eef4;
+    --shadow: 0 14px 30px rgba(48, 78, 102, 0.10);
+    --radius: 22px;
+    --radius-sm: 16px;
+    --fs: 17px;
+    --fs-title: 19px;
+    --fs-brand: 28px;
+    --fs-act: 22px;
+    --fs-timer: 36px;
     --lh: 1.45;
-    --track: 0.012em;
-    --gap: 12px;
+    --track: 0.01em;
+    --gap: 14px;
     --pad: 16px;
-    --icon-stroke: 1.55;
+    --icon-stroke: 1.7;
     --icon-cap: round;
     --icon-join: round;
   }
 
   html[data-theme="instrument"] {
-    --bg: #050912;
-    --header: #070d18;
-    --panel: #0a1222;
-    --panel-2: #0d172b;
-    --inset: #070e1c;
-    --line: rgba(154, 184, 224, 0.38);
-    --text: #e6edf7;
-    --muted: #93a6c2;
-    --faint: #6d82a2;
-    --accent: #e2a23a;
-    --accent-ink: #1c1306;
-    --cm: #d5deea;
-    --nacl: #9eb6d4;
-    --inject: #e2a23a;
-    --danger: #ef5d5d;
-    --ready-bg: #0c1528;
-    --run-bg: #0c1528;
-    --stop-bg: #0c1528;
-    --act-line: rgba(154, 184, 224, 0.45);
-    --ready-ink: #e2a23a;
-    --syringe: #eef3f8;
-    --shadow: none;
-    --radius: 2px;
-    --radius-sm: 2px;
-    --fs: 13px;
-    --fs-title: 13px;
-    --fs-brand: 20px;
-    --fs-act: 18px;
-    --fs-timer: 42px;
-    --lh: 1.3;
-    --track: 0.04em;
+    --bg: #3f5878;
+    --header: #4a6588;
+    --panel: #45617f;
+    --panel-2: #51708f;
+    --inset: #3c5674;
+    --line: rgba(232, 242, 252, 0.28);
+    --text: #f7fbff;
+    --muted: #d7e4f1;
+    --faint: #c3d4e4;
+    --accent: #f0b14a;
+    --accent-ink: #2a1c08;
+    --cm: #f2f6fb;
+    --nacl: #d5e7f8;
+    --inject: #f0b14a;
+    --danger: #ffb4b4;
+    --ready-bg: #3a5474;
+    --run-bg: #3a5474;
+    --stop-bg: #3a5474;
+    --act-line: rgba(236, 244, 252, 0.28);
+    --ready-ink: #f0b14a;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f3f7fb;
+    --syringe-lo: #d5e0ea;
+    --shadow: 0 12px 26px rgba(24, 40, 62, 0.18);
+    --radius: 12px;
+    --radius-sm: 10px;
+    --fs: 16px;
+    --fs-title: 17px;
+    --fs-brand: 26px;
+    --fs-act: 20px;
+    --fs-timer: 40px;
+    --lh: 1.35;
+    --track: 0.02em;
     --gap: 8px;
-    --pad: 12px;
-    --icon-stroke: 1.15;
-    --icon-cap: square;
-    --icon-join: miter;
-    --num: "WenQuanYi Micro Hei", ui-monospace, monospace;
+    --pad: 14px;
+    --icon-stroke: 1.55;
+    --icon-cap: round;
+    --icon-join: round;
+    --num: "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -141,8 +148,8 @@
   button, input { font: inherit; color: inherit; }
 
   svg.icon {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     display: block;
     fill: none;
     stroke: currentColor;
@@ -262,8 +269,8 @@
   }
 
   html[data-theme="instrument"] .brand {
-    font-weight: 600;
-    letter-spacing: 0.14em;
+    font-weight: 650;
+    letter-spacing: 0.06em;
   }
 
   .clock {
@@ -311,7 +318,7 @@
   }
 
   html[data-theme="soft"] .icon-btn { border-color: transparent; }
-  html[data-theme="clinical"] .icon-btn { background: #314562; }
+  html[data-theme="clinical"] .icon-btn { background: #e7f1f8; color: #1a3c52; }
   html[data-theme="instrument"] .icon-row { gap: 6px; }
 
   .card {
@@ -332,7 +339,7 @@
   }
 
   html[data-theme="clinical"] .card {
-    background: linear-gradient(#243750, #1b2c42);
+    background: linear-gradient(#ffffff, #f4f9fc);
   }
 
   .card-patient { flex: 1.42; }
@@ -406,7 +413,7 @@
   }
 
   html[data-theme="clinical"] .workspace {
-    background: #1a2940;
+    background: linear-gradient(#ffffff, #f5fafc);
   }
 
   html[data-theme="soft"] .workspace { border-color: transparent; }
@@ -453,9 +460,22 @@
   .barrel .tag {
     font-weight: 750;
     letter-spacing: 0.04em;
-    margin-bottom: 6px;
-    font-size: 15px;
+    margin-bottom: 2px;
+    font-size: 18px;
     flex: none;
+  }
+
+  .cap {
+    flex: none;
+    margin-bottom: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--inset);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
   }
 
   .tag-cm { color: var(--cm); }
@@ -463,13 +483,23 @@
 
   .syr {
     position: relative;
-    width: 74px;
-    flex: 1;
+    flex: none;
+    margin-top: auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    filter: drop-shadow(0 10px 14px rgba(36, 64, 90, 0.16));
   }
+
+  .syr-63 { width: 58px; flex: 0 0 46%; }
+  .syr-110 { width: 88px; flex: 0 0 72%; }
+  .syr-63 .neck,
+  .syr-63 .body,
+  .syr-63 .shoulder { width: 54%; }
+  .syr-110 .neck,
+  .syr-110 .body,
+  .syr-110 .shoulder { width: 78%; }
 
   .syr .flange,
   .syr .neck,
@@ -477,31 +507,30 @@
   .syr .shoulder,
   .syr .nozzle,
   .syr .tip {
-    background: var(--syringe);
+    background: linear-gradient(90deg, var(--syringe-lo), var(--syringe-hi) 46%, var(--syringe-mid));
     flex: none;
   }
 
-  html[data-theme="instrument"] .syr .flange,
-  html[data-theme="instrument"] .syr .neck,
-  html[data-theme="instrument"] .syr .body,
-  html[data-theme="instrument"] .syr .shoulder,
-  html[data-theme="instrument"] .syr .nozzle,
-  html[data-theme="instrument"] .syr .tip {
-    box-shadow: inset 0 0 0 1px rgba(8, 16, 32, 0.35);
-  }
+  .syr-63 .flange { box-shadow: inset 0 -3px 0 var(--cm); }
+  .syr-110 .flange { box-shadow: inset 0 -4px 0 var(--nacl); }
 
-  html[data-theme="soft"] .syr .flange { border-radius: 6px 6px 0 0; }
+  html[data-theme="soft"] .syr .flange { border-radius: 12px 12px 4px 4px; }
 
-  .syr .flange { width: 100%; height: 16px; border-radius: 2px 2px 0 0; }
-  .syr .neck { width: 62%; height: 7px; }
-  .syr .body { width: 62%; flex: 1 1 auto; }
+  .syr .flange { width: 100%; height: 14px; border-radius: 8px 8px 3px 3px; }
+  .syr .neck { width: 64%; height: 7px; }
+  .syr .body { width: 64%; flex: 1 1 auto; border-radius: 2px; }
   .syr .shoulder {
-    width: 62%;
-    height: 36px;
-    clip-path: polygon(0 0, 100% 0, 76% 100%, 24% 100%);
+    width: 64%;
+    height: 28px;
+    clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%);
   }
-  .syr .nozzle { width: 16px; height: 18px; }
-  .syr .tip { width: 8px; height: 14px; }
+  .syr .nozzle { width: 14px; height: 14px; border-radius: 2px; }
+  .syr .tip { width: 7px; height: 12px; border-radius: 0 0 3px 3px; }
+  .syr-110 .flange { height: 18px; }
+  .syr-110 .shoulder { height: 40px; }
+  .syr-110 .nozzle { width: 18px; height: 18px; }
+  .syr-110 .tip { width: 9px; height: 16px; }
+  .syr-63 .shoulder { height: 20px; }
 
   .vol {
     position: absolute;
@@ -518,8 +547,10 @@
     font-family: var(--num);
   }
 
-  .vol b { font-size: 18px; font-weight: 750; }
-  .vol span { font-size: 14px; }
+  .vol b { font-size: 20px; font-weight: 750; }
+  .vol span { font-size: 15px; }
+  .syr-63 .vol { top: 34%; }
+  .syr-110 .vol { top: 38%; }
 
   .totals {
     grid-column: 2 / -1;
@@ -527,7 +558,9 @@
     display: flex;
     justify-content: space-around;
     gap: 8px;
-    padding-top: 6px;
+    padding-top: 8px;
+    position: relative;
+    z-index: 1;
     color: var(--text);
     font-family: var(--num);
     font-size: 14px;
@@ -561,12 +594,12 @@
 
   html[data-theme="soft"] .phase-head { border-bottom-color: rgba(255, 255, 255, 0.2); }
   html[data-theme="clinical"] .phase-head {
-    border-bottom-color: rgba(255, 255, 255, 0.18);
-    color: #d5e2f0;
+    border-bottom-color: rgba(36, 78, 108, 0.16);
+    color: #4c677b;
   }
   html[data-theme="instrument"] .phase-head {
     border-bottom-width: 1px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.04em;
   }
 
   .phase-head span:nth-child(2),
@@ -579,15 +612,16 @@
   .phase-head span:first-child { text-align: center; }
 
   .ta, .cell, .del, .add {
-    height: 42px;
+    height: 50px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
+    font-size: 16px;
   }
 
   html[data-theme="soft"] .ta,
   html[data-theme="soft"] .cell,
   html[data-theme="soft"] .del,
-  html[data-theme="soft"] .add { height: 46px; }
+  html[data-theme="soft"] .add { height: 54px; font-size: 17px; }
 
   .ta {
     background: var(--accent);
@@ -613,7 +647,7 @@
     font-family: var(--num);
   }
 
-  html[data-theme="clinical"] .cell { background: #121e2e; }
+  html[data-theme="clinical"] .cell { background: #e7f1f7; color: #173246; }
   html[data-theme="soft"] .cell {
     background: rgba(255, 255, 255, 0.1);
     border-color: transparent;
@@ -628,7 +662,7 @@
     cursor: default;
   }
 
-  html[data-theme="clinical"] .del { background: #121e2e; color: #d5e0ec; }
+  html[data-theme="clinical"] .del { background: #e7f1f7; color: #3d5a70; }
   html[data-theme="soft"] .del { background: rgba(255, 255, 255, 0.1); border-color: transparent; }
   html[data-theme="instrument"] .del { color: var(--text); }
 
@@ -645,7 +679,7 @@
     border-color: var(--line);
   }
 
-  html[data-theme="clinical"] .add { background: #2a3d58; }
+  html[data-theme="clinical"] .add { background: #e7f1f7; color: #173246; }
   html[data-theme="soft"] .add {
     background: rgba(255, 255, 255, 0.12);
     border-color: transparent;
@@ -670,7 +704,8 @@
     background: var(--ready-bg);
     color: var(--ready-ink);
     border-radius: var(--radius);
-    transform: skewX(-14deg);
+    transform: skewX(-6deg);
+    box-shadow: var(--shadow);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -680,7 +715,7 @@
     padding: 0;
   }
 
-  .act > * { transform: skewX(14deg); }
+  .act > * { transform: skewX(6deg); }
 
   .act svg.icon { width: 20px; height: 20px; }
 
@@ -688,14 +723,16 @@
   .act-stop { background: var(--stop-bg); color: var(--danger); }
 
   html[data-theme="clinical"] .act-ready {
-    background: linear-gradient(#516888, #334862);
+    background: linear-gradient(#5b93a4, #3f7c8e);
     color: #fff;
   }
   html[data-theme="clinical"] .act-run {
-    background: linear-gradient(#62809f, #3e5674);
+    background: linear-gradient(#2eb8b0, #12958e);
+    color: #fff;
   }
   html[data-theme="clinical"] .act-stop {
-    background: linear-gradient(#2a3a50, #15202e);
+    background: linear-gradient(#fff, #f8eef0);
+    color: #d23b48;
   }
 
   html[data-theme="instrument"] .act-ready,
@@ -714,11 +751,11 @@
   }
 
   html[data-theme="soft"] .readout { border-color: transparent; padding: 18px 12px 16px; }
-  html[data-theme="clinical"] .readout { background: #243750; }
+  html[data-theme="clinical"] .readout { background: linear-gradient(#ffffff, #f4f9fc); }
 
   .readout .k { color: var(--muted); margin-bottom: 6px; }
   .readout .v {
-    font-size: 26px;
+    font-size: 28px;
     font-family: var(--num);
     font-weight: 650;
     letter-spacing: 0.02em;
@@ -759,7 +796,7 @@
     font-size: 16px;
   }
 
-  html[data-theme="clinical"] .reset { background: #314562; }
+  html[data-theme="clinical"] .reset { background: #e7f1f8; color: #173246; }
   html[data-theme="soft"] .reset {
     border-color: transparent;
     height: 58px;
@@ -782,13 +819,14 @@
     grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr);
     padding: 6px 4px 8px;
   }
-  html[data-theme="clinical"] .syr { width: 54px; }
+  html[data-theme="clinical"] .syr-63 { width: 46px; flex-basis: 42%; }
+  html[data-theme="clinical"] .syr-110 { width: 70px; flex-basis: 68%; }
   html[data-theme="clinical"] .more { font-size: 11px; padding-top: 26px; }
   html[data-theme="clinical"] .phases { padding: 8px 12px 10px; }
   html[data-theme="clinical"] .actions { height: 62px; gap: 6px; }
-  html[data-theme="clinical"] .timer-well { flex: none; height: 88px; font-size: 32px; }
-  html[data-theme="clinical"] .readout { padding: 10px 8px 8px; }
-  html[data-theme="clinical"] .readout .v { font-size: 22px; }
+  html[data-theme="clinical"] .timer-well { flex: none; height: 96px; font-size: 36px; }
+  html[data-theme="clinical"] .readout { padding: 12px 8px 10px; }
+  html[data-theme="clinical"] .readout .v { font-size: 26px; }
   html[data-theme="clinical"] .reset { margin: 0; height: 46px; }
 
   html[data-theme="soft"] .stage {
@@ -797,8 +835,9 @@
   }
   html[data-theme="soft"] .col-left { gap: 18px; padding: 16px 8px 16px 16px; }
   html[data-theme="soft"] .col-center { gap: 16px; padding: 16px 12px 14px; }
-  html[data-theme="soft"] .workspace { grid-template-columns: 368px minmax(0, 1fr); }
-  html[data-theme="soft"] .syr { width: 96px; }
+  html[data-theme="soft"] .workspace { grid-template-columns: 340px minmax(0, 1fr); }
+  html[data-theme="soft"] .syr-63 { width: 68px; flex-basis: 46%; }
+  html[data-theme="soft"] .syr-110 { width: 102px; flex-basis: 70%; }
   html[data-theme="soft"] .phases { padding: 18px 16px 16px; }
   html[data-theme="soft"] .col-right {
     display: grid;
@@ -863,7 +902,8 @@
     border-radius: var(--radius);
     grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
   }
-  html[data-theme="instrument"] .syr { width: 62px; }
+  html[data-theme="instrument"] .syr-63 { width: 48px; flex-basis: 42%; }
+  html[data-theme="instrument"] .syr-110 { width: 76px; flex-basis: 68%; }
   html[data-theme="instrument"] .phases {
     grid-column: 2;
     grid-row: 1;
@@ -1002,7 +1042,8 @@
             <div class="more">MORE</div>
               <div class="barrel barrel-a">
                 <div class="tag tag-cm">CM</div>
-                <div class="syr" aria-hidden="true">
+                <div class="cap">63mL</div>
+                <div class="syr syr-63">
                   <div class="flange"></div>
                   <div class="neck"></div>
                   <div class="body"></div>
@@ -1014,7 +1055,8 @@
               </div>
               <div class="barrel barrel-b">
                 <div class="tag tag-nacl">NaCl</div>
-                <div class="syr" aria-hidden="true">
+                <div class="cap">110mL</div>
+                <div class="syr syr-110">
                   <div class="flange"></div>
                   <div class="neck"></div>
                   <div class="body"></div>
