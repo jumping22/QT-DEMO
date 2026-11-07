@@ -767,6 +767,125 @@
   }
   html[data-theme="instrument"] .reset { background: transparent; letter-spacing: 0.18em; }
 
+  /* Layout shifts: same controls, different spacing and grouping. */
+
+  html[data-theme="clinical"] .stage {
+    grid-template-rows: 48px minmax(0, 1fr);
+    grid-template-columns: 248px minmax(0, 1fr) 196px;
+  }
+  html[data-theme="clinical"] .col { gap: 6px; padding: 8px; }
+  html[data-theme="clinical"] .icon-row { height: 52px; gap: 6px; }
+  html[data-theme="clinical"] .icon-btn { width: 62px; height: 52px; }
+  html[data-theme="clinical"] .card { padding: 8px 10px; gap: 4px; }
+  html[data-theme="clinical"] .workspace { grid-template-columns: 176px minmax(0, 1fr); }
+  html[data-theme="clinical"] .syringes {
+    grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr);
+    padding: 6px 4px 8px;
+  }
+  html[data-theme="clinical"] .syr { width: 54px; }
+  html[data-theme="clinical"] .more { font-size: 11px; padding-top: 26px; }
+  html[data-theme="clinical"] .phases { padding: 8px 12px 10px; }
+  html[data-theme="clinical"] .actions { height: 62px; gap: 6px; }
+  html[data-theme="clinical"] .timer-well { flex: none; height: 88px; font-size: 32px; }
+  html[data-theme="clinical"] .readout { padding: 10px 8px 8px; }
+  html[data-theme="clinical"] .readout .v { font-size: 22px; }
+  html[data-theme="clinical"] .reset { margin: 0; height: 46px; }
+
+  html[data-theme="soft"] .stage {
+    grid-template-rows: 64px minmax(0, 1fr);
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+  }
+  html[data-theme="soft"] .col-left { gap: 18px; padding: 16px 8px 16px 16px; }
+  html[data-theme="soft"] .col-center { gap: 16px; padding: 16px 12px 14px; }
+  html[data-theme="soft"] .workspace { grid-template-columns: 368px minmax(0, 1fr); }
+  html[data-theme="soft"] .syr { width: 96px; }
+  html[data-theme="soft"] .phases { padding: 18px 16px 16px; }
+  html[data-theme="soft"] .col-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px 16px 14px 8px;
+  }
+  html[data-theme="soft"] .col-right .icon-row {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+  html[data-theme="soft"] .col-right .readout {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 124px;
+  }
+  html[data-theme="soft"] .col-right .timer-well {
+    grid-column: 2;
+    grid-row: 2;
+    flex: none;
+    min-height: 124px;
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    font-size: 32px;
+  }
+  html[data-theme="soft"] .col-right .reset {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-self: end;
+    margin: 0;
+  }
+
+  html[data-theme="instrument"] .stage {
+    grid-template-rows: 50px minmax(0, 1fr);
+    grid-template-columns: 246px minmax(0, 1fr) 228px;
+  }
+  html[data-theme="instrument"] .col-left { gap: 4px; }
+  html[data-theme="instrument"] .card-other { margin-top: 14px; }
+  html[data-theme="instrument"] .col-center {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 70px;
+    gap: 8px;
+    padding: 8px;
+  }
+  html[data-theme="instrument"] .workspace {
+    display: contents;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  html[data-theme="instrument"] .syringes {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  html[data-theme="instrument"] .syr { width: 62px; }
+  html[data-theme="instrument"] .phases {
+    grid-column: 2;
+    grid-row: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  html[data-theme="instrument"] .actions {
+    grid-column: 2;
+    grid-row: 2;
+    height: auto;
+  }
+  html[data-theme="instrument"] .col-right .timer-well {
+    order: 1;
+    flex: none;
+    height: 132px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  html[data-theme="instrument"] .col-right .readout { order: 2; }
+  html[data-theme="instrument"] .col-right .reset { order: 3; margin-top: auto; }
+
   @media (max-width: 1500px) {
     body:not(.frame) .fit { overflow: auto; justify-content: start; }
   }
