@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova-C 样式演示</title>
+<style>
+  :root {
+    --bg: #d7e4ef;
+    --header: #f3f8fc;
+    --panel: #f8fbfd;
+    --panel-2: #e7f1f7;
+    --inset: #e4eef5;
+    --line: rgba(36, 78, 108, 0.14);
+    --text: #173246;
+    --muted: #4c677b;
+    --faint: #6d8496;
+    --accent: #129e97;
+    --accent-ink: #ffffff;
+    --cm: #0d8c86;
+    --nacl: #2b74a8;
+    --inject: #ffffff;
+    --danger: #d23b48;
+    --ready-bg: #3f7f90;
+    --run-bg: #149e97;
+    --stop-bg: #f8eef0;
+    --act-line: transparent;
+    --ready-ink: #ffffff;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f4f8fb;
+    --syringe-lo: #dfe8f0;
+    --shadow: 0 10px 24px rgba(42, 78, 108, 0.10);
+    --radius: 14px;
+    --radius-sm: 11px;
+    --fs: 16px;
+    --fs-title: 18px;
+    --fs-brand: 26px;
+    --fs-act: 22px;
+    --fs-timer: 42px;
+    --lh: 1.35;
+    --track: 0;
+    --gap: 8px;
+    --pad: 14px;
+    --icon-stroke: 1.6;
+    --icon-cap: round;
+    --icon-join: round;
+    --num: "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
+    color-scheme: light;
+  }
+
+  html[data-theme="soft"] {
+    --bg: #e7eef3;
+    --header: #f7fafc;
+    --panel: #ffffff;
+    --panel-2: #f3f7fa;
+    --inset: #eef3f7;
+    --line: rgba(48, 78, 102, 0.08);
+    --text: #243848;
+    --muted: #5a7284;
+    --faint: #7b90a0;
+    --accent: #c5e056;
+    --accent-ink: #243306;
+    --cm: #5f9214;
+    --nacl: #3d7eab;
+    --inject: #243306;
+    --danger: #d4535c;
+    --ready-bg: #6f9bb4;
+    --run-bg: #b7d84e;
+    --stop-bg: #fff6f7;
+    --act-line: transparent;
+    --ready-ink: #ffffff;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f7fafc;
+    --syringe-lo: #e6eef4;
+    --shadow: 0 14px 30px rgba(48, 78, 102, 0.10);
+    --radius: 22px;
+    --radius-sm: 16px;
+    --fs: 17px;
+    --fs-title: 19px;
+    --fs-brand: 28px;
+    --fs-act: 22px;
+    --fs-timer: 36px;
+    --lh: 1.45;
+    --track: 0.01em;
+    --gap: 14px;
+    --pad: 16px;
+    --icon-stroke: 1.7;
+    --icon-cap: round;
+    --icon-join: round;
+  }
+
+  html[data-theme="instrument"] {
+    --bg: #3f5878;
+    --header: #4a6588;
+    --panel: #45617f;
+    --panel-2: #51708f;
+    --inset: #3c5674;
+    --line: rgba(232, 242, 252, 0.28);
+    --text: #f7fbff;
+    --muted: #d7e4f1;
+    --faint: #c3d4e4;
+    --accent: #f0b14a;
+    --accent-ink: #2a1c08;
+    --cm: #f2f6fb;
+    --nacl: #d5e7f8;
+    --inject: #f0b14a;
+    --danger: #ffb4b4;
+    --ready-bg: #3a5474;
+    --run-bg: #3a5474;
+    --stop-bg: #3a5474;
+    --act-line: rgba(236, 244, 252, 0.28);
+    --ready-ink: #f0b14a;
+    --syringe-hi: #ffffff;
+    --syringe-mid: #f3f7fb;
+    --syringe-lo: #d5e0ea;
+    --shadow: 0 12px 26px rgba(24, 40, 62, 0.18);
+    --radius: 12px;
+    --radius-sm: 10px;
+    --fs: 16px;
+    --fs-title: 17px;
+    --fs-brand: 26px;
+    --fs-act: 20px;
+    --fs-timer: 40px;
+    --lh: 1.35;
+    --track: 0.02em;
+    --gap: 8px;
+    --pad: 14px;
+    --icon-stroke: 1.55;
+    --icon-cap: round;
+    --icon-join: round;
+    --num: "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #241f1a;
+    color: var(--text);
+    font-family: "WenQuanYi Micro Hei", "Droid Sans Fallback", "Noto Sans SC", sans-serif;
+    font-size: var(--fs);
+    line-height: var(--lh);
+    letter-spacing: var(--track);
+  }
+
+  button, input { font: inherit; color: inherit; }
+
+  svg.icon {
+    width: 26px;
+    height: 26px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--icon-stroke);
+    stroke-linecap: var(--icon-cap);
+    stroke-linejoin: var(--icon-join);
+  }
+
+  svg.icon .fill {
+    fill: currentColor;
+    stroke: none;
+  }
+
+  .chrome {
+    width: min(1476px, calc(100% - 24px));
+    margin: 14px auto 10px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #f6f1e8;
+    color: #2c261e;
+    border: 1px dashed #b7a48a;
+    border-radius: 12px;
+    letter-spacing: 0;
+    line-height: 1.3;
+  }
+
+  .chrome-note {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .chrome-kicker {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .chrome-sub {
+    font-size: 12px;
+    color: #6d6254;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    flex: none;
+  }
+
+  .tabs button {
+    appearance: none;
+    border: 1px solid #c9bba6;
+    background: transparent;
+    color: #2c261e;
+    border-radius: 999px;
+    padding: 6px 12px;
+    cursor: pointer;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .tabs button[aria-selected="true"] {
+    background: #2c261e;
+    color: #f6f1e8;
+    border-color: #2c261e;
+  }
+
+  .fit {
+    width: 100%;
+    display: grid;
+    place-items: center;
+    padding: 0 12px 16px;
+  }
+
+  .stage {
+    width: 1476px;
+    height: 830px;
+    background: var(--bg);
+    color: var(--text);
+    display: grid;
+    grid-template-rows: 56px minmax(0, 1fr);
+    grid-template-columns: 272px minmax(0, 1fr) 236px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    user-select: none;
+  }
+
+  body.frame {
+    background: var(--bg);
+    width: 1476px;
+    height: 830px;
+    overflow: hidden;
+  }
+
+  body.frame .chrome { display: none; }
+  body.frame .fit { padding: 0; }
+  body.frame .stage { box-shadow: none; }
+
+  .top {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: var(--header);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    font-size: var(--fs-brand);
+    font-weight: 650;
+    letter-spacing: 0.01em;
+  }
+
+  html[data-theme="instrument"] .brand {
+    font-weight: 650;
+    letter-spacing: 0.06em;
+  }
+
+  .clock {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--num);
+    letter-spacing: 0.02em;
+  }
+
+  html[data-theme="instrument"] .clock { color: var(--text); }
+
+  .col {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding: 10px;
+  }
+
+  .col-left { padding-right: 6px; }
+  .col-right { padding-left: 6px; }
+
+  .icon-row {
+    height: 64px;
+    display: flex;
+    gap: 8px;
+    flex: none;
+  }
+
+  .icon-btn {
+    width: 74px;
+    height: 64px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    cursor: default;
+  }
+
+  html[data-theme="soft"] .icon-btn { border-color: transparent; }
+  html[data-theme="clinical"] .icon-btn { background: #e7f1f8; color: #1a3c52; }
+  html[data-theme="instrument"] .icon-row { gap: 6px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: var(--pad);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  html[data-theme="soft"] .card {
+    border-color: transparent;
+    gap: 10px;
+  }
+
+  html[data-theme="clinical"] .card {
+    background: linear-gradient(#ffffff, #f4f9fc);
+  }
+
+  .card-patient { flex: 1.42; }
+  .card-drug { flex: 0.78; }
+  .card-other { flex: 0.95; }
+
+  h2 {
+    margin: 0;
+    font-size: var(--fs-title);
+    font-weight: 650;
+    letter-spacing: var(--track);
+  }
+
+  html[data-theme="instrument"] h2 {
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: none;
+  }
+
+  .fields {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 2px 8px;
+    align-items: start;
+    min-height: 0;
+  }
+
+  html[data-theme="soft"] .fields { gap: 4px 10px; }
+
+  .mark {
+    grid-row: 1 / span 3;
+    color: var(--text);
+    padding-top: 2px;
+  }
+
+  dl {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  html[data-theme="soft"] dl { gap: 7px; }
+  html[data-theme="clinical"] dl { gap: 4px; }
+
+  dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: baseline;
+  }
+
+  dt { color: var(--muted); }
+  dd {
+    margin: 0;
+    color: var(--text);
+    font-family: var(--num);
+  }
+
+  .workspace {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  html[data-theme="clinical"] .workspace {
+    background: linear-gradient(#ffffff, #f5fafc);
+  }
+
+  html[data-theme="soft"] .workspace { border-color: transparent; }
+
+  .syringes {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    padding: 10px 8px 10px 8px;
+    column-gap: 4px;
+  }
+
+  .more {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    padding-top: 34px;
+    color: var(--faint);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  html[data-theme="instrument"] .more {
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+
+  .barrel {
+    grid-row: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+  }
+
+  .barrel-a { grid-column: 2; }
+  .barrel-b { grid-column: 3; }
+
+  .barrel .tag {
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+    font-size: 18px;
+    flex: none;
+  }
+
+  .cap {
+    flex: none;
+    margin-bottom: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--inset);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+  }
+
+  .tag-cm { color: var(--cm); }
+  .tag-nacl { color: var(--nacl); }
+
+  .syr {
+    position: relative;
+    flex: none;
+    margin-top: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    filter: drop-shadow(0 10px 14px rgba(36, 64, 90, 0.16));
+  }
+
+  .syr-63 { width: 58px; flex: 0 0 46%; }
+  .syr-110 { width: 88px; flex: 0 0 72%; }
+  .syr-63 .neck,
+  .syr-63 .body,
+  .syr-63 .shoulder { width: 54%; }
+  .syr-110 .neck,
+  .syr-110 .body,
+  .syr-110 .shoulder { width: 78%; }
+
+  .syr .flange,
+  .syr .neck,
+  .syr .body,
+  .syr .shoulder,
+  .syr .nozzle,
+  .syr .tip {
+    background: linear-gradient(90deg, var(--syringe-lo), var(--syringe-hi) 46%, var(--syringe-mid));
+    flex: none;
+  }
+
+  .syr-63 .flange { box-shadow: inset 0 -3px 0 var(--cm); }
+  .syr-110 .flange { box-shadow: inset 0 -4px 0 var(--nacl); }
+
+  html[data-theme="soft"] .syr .flange { border-radius: 12px 12px 4px 4px; }
+
+  .syr .flange { width: 100%; height: 14px; border-radius: 8px 8px 3px 3px; }
+  .syr .neck { width: 64%; height: 7px; }
+  .syr .body { width: 64%; flex: 1 1 auto; border-radius: 2px; }
+  .syr .shoulder {
+    width: 64%;
+    height: 28px;
+    clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%);
+  }
+  .syr .nozzle { width: 14px; height: 14px; border-radius: 2px; }
+  .syr .tip { width: 7px; height: 12px; border-radius: 0 0 3px 3px; }
+  .syr-110 .flange { height: 18px; }
+  .syr-110 .shoulder { height: 40px; }
+  .syr-110 .nozzle { width: 18px; height: 18px; }
+  .syr-110 .tip { width: 9px; height: 16px; }
+  .syr-63 .shoulder { height: 20px; }
+
+  .vol {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 46%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #1c2430;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.15;
+    font-family: var(--num);
+  }
+
+  .vol b { font-size: 20px; font-weight: 750; }
+  .vol span { font-size: 15px; }
+  .syr-63 .vol { top: 34%; }
+  .syr-110 .vol { top: 38%; }
+
+  .totals {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    padding-top: 8px;
+    position: relative;
+    z-index: 1;
+    color: var(--text);
+    font-family: var(--num);
+    font-size: 14px;
+  }
+
+  .phases {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px 14px;
+    border-left: 1px solid var(--line);
+  }
+
+  html[data-theme="soft"] .phases { border-left-color: rgba(255, 255, 255, 0.14); }
+  html[data-theme="clinical"] .phases { border-left-color: rgba(255, 255, 255, 0.1); }
+
+  .phase-head, .phase-row {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1.15fr) minmax(0, 1fr) 72px 42px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .phase-head {
+    color: var(--muted);
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+
+  html[data-theme="soft"] .phase-head { border-bottom-color: rgba(255, 255, 255, 0.2); }
+  html[data-theme="clinical"] .phase-head {
+    border-bottom-color: rgba(36, 78, 108, 0.16);
+    color: #4c677b;
+  }
+  html[data-theme="instrument"] .phase-head {
+    border-bottom-width: 1px;
+    letter-spacing: 0.04em;
+  }
+
+  .phase-head span:nth-child(2),
+  .phase-head span:nth-child(3),
+  .phase-head span:nth-child(4),
+  .cell {
+    text-align: center;
+  }
+
+  .phase-head span:first-child { text-align: center; }
+
+  .ta, .cell, .del, .add {
+    height: 50px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--line);
+    font-size: 16px;
+  }
+
+  html[data-theme="soft"] .ta,
+  html[data-theme="soft"] .cell,
+  html[data-theme="soft"] .del,
+  html[data-theme="soft"] .add { height: 54px; font-size: 17px; }
+
+  .ta {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    border-color: transparent;
+    cursor: default;
+  }
+
+  html[data-theme="instrument"] .ta {
+    background: transparent;
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+
+  .cell {
+    display: grid;
+    place-items: center;
+    background: var(--inset);
+    color: var(--text);
+    font-family: var(--num);
+  }
+
+  html[data-theme="clinical"] .cell { background: #e7f1f7; color: #173246; }
+  html[data-theme="soft"] .cell {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: transparent;
+  }
+
+  .del {
+    display: grid;
+    place-items: center;
+    background: var(--inset);
+    color: var(--muted);
+    padding: 0;
+    cursor: default;
+  }
+
+  html[data-theme="clinical"] .del { background: #e7f1f7; color: #3d5a70; }
+  html[data-theme="soft"] .del { background: rgba(255, 255, 255, 0.1); border-color: transparent; }
+  html[data-theme="instrument"] .del { color: var(--text); }
+
+  .add {
+    margin-top: 12px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: default;
+    border-color: var(--line);
+  }
+
+  html[data-theme="clinical"] .add { background: #e7f1f7; color: #173246; }
+  html[data-theme="soft"] .add {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: transparent;
+    margin-top: 16px;
+  }
+  html[data-theme="instrument"] .add { background: transparent; }
+
+  .actions {
+    flex: none;
+    height: 78px;
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    padding-top: 2px;
+  }
+
+  html[data-theme="soft"] .actions { gap: 14px; height: 82px; }
+
+  .act {
+    flex: 1;
+    border: 1px solid var(--act-line);
+    background: var(--ready-bg);
+    color: var(--ready-ink);
+    border-radius: var(--radius);
+    transform: skewX(-6deg);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: var(--fs-act);
+    cursor: default;
+    padding: 0;
+  }
+
+  .act > * { transform: skewX(6deg); }
+
+  .act svg.icon { width: 20px; height: 20px; }
+
+  .act-run { background: var(--run-bg); color: var(--inject); }
+  .act-stop { background: var(--stop-bg); color: var(--danger); }
+
+  html[data-theme="clinical"] .act-ready {
+    background: linear-gradient(#5b93a4, #3f7c8e);
+    color: #fff;
+  }
+  html[data-theme="clinical"] .act-run {
+    background: linear-gradient(#2eb8b0, #12958e);
+    color: #fff;
+  }
+  html[data-theme="clinical"] .act-stop {
+    background: linear-gradient(#fff, #f8eef0);
+    color: #d23b48;
+  }
+
+  html[data-theme="instrument"] .act-ready,
+  html[data-theme="instrument"] .act-run {
+    color: var(--accent);
+  }
+
+  .readout {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: center;
+    padding: 16px 10px 14px;
+    flex: none;
+  }
+
+  html[data-theme="soft"] .readout { border-color: transparent; padding: 18px 12px 16px; }
+  html[data-theme="clinical"] .readout { background: linear-gradient(#ffffff, #f4f9fc); }
+
+  .readout .k { color: var(--muted); margin-bottom: 6px; }
+  .readout .v {
+    font-size: 28px;
+    font-family: var(--num);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+  }
+
+  html[data-theme="instrument"] .readout .v { color: var(--accent); font-weight: 600; }
+
+  .timer-well {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-timer);
+    font-family: var(--num);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  html[data-theme="instrument"] .timer-well {
+    color: var(--accent);
+    font-weight: 560;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  html[data-theme="clinical"] .timer-well { font-weight: 650; letter-spacing: 0.02em; }
+
+  .reset {
+    flex: none;
+    height: 56px;
+    margin: 0 18px 4px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    box-shadow: var(--shadow);
+    cursor: default;
+    font-size: 16px;
+  }
+
+  html[data-theme="clinical"] .reset { background: #e7f1f8; color: #173246; }
+  html[data-theme="soft"] .reset {
+    border-color: transparent;
+    height: 58px;
+    margin-bottom: 2px;
+  }
+  html[data-theme="instrument"] .reset { background: transparent; letter-spacing: 0.18em; }
+
+  /* Layout shifts: same controls, different spacing and grouping. */
+
+  html[data-theme="clinical"] .stage {
+    grid-template-rows: 48px minmax(0, 1fr);
+    grid-template-columns: 248px minmax(0, 1fr) 196px;
+  }
+  html[data-theme="clinical"] .col { gap: 6px; padding: 8px; }
+  html[data-theme="clinical"] .icon-row { height: 52px; gap: 6px; }
+  html[data-theme="clinical"] .icon-btn { width: 62px; height: 52px; }
+  html[data-theme="clinical"] .card { padding: 8px 10px; gap: 4px; }
+  html[data-theme="clinical"] .workspace { grid-template-columns: 176px minmax(0, 1fr); }
+  html[data-theme="clinical"] .syringes {
+    grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr);
+    padding: 6px 4px 8px;
+  }
+  html[data-theme="clinical"] .syr-63 { width: 46px; flex-basis: 42%; }
+  html[data-theme="clinical"] .syr-110 { width: 70px; flex-basis: 68%; }
+  html[data-theme="clinical"] .more { font-size: 11px; padding-top: 26px; }
+  html[data-theme="clinical"] .phases { padding: 8px 12px 10px; }
+  html[data-theme="clinical"] .actions { height: 62px; gap: 6px; }
+  html[data-theme="clinical"] .timer-well { flex: none; height: 96px; font-size: 36px; }
+  html[data-theme="clinical"] .readout { padding: 12px 8px 10px; }
+  html[data-theme="clinical"] .readout .v { font-size: 26px; }
+  html[data-theme="clinical"] .reset { margin: 0; height: 46px; }
+
+  html[data-theme="soft"] .stage {
+    grid-template-rows: 64px minmax(0, 1fr);
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+  }
+  html[data-theme="soft"] .col-left { gap: 18px; padding: 16px 8px 16px 16px; }
+  html[data-theme="soft"] .col-center { gap: 16px; padding: 16px 12px 14px; }
+  html[data-theme="soft"] .workspace { grid-template-columns: 340px minmax(0, 1fr); }
+  html[data-theme="soft"] .syr-63 { width: 68px; flex-basis: 46%; }
+  html[data-theme="soft"] .syr-110 { width: 102px; flex-basis: 70%; }
+  html[data-theme="soft"] .phases { padding: 18px 16px 16px; }
+  html[data-theme="soft"] .col-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px 16px 14px 8px;
+  }
+  html[data-theme="soft"] .col-right .icon-row {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+  html[data-theme="soft"] .col-right .readout {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 124px;
+  }
+  html[data-theme="soft"] .col-right .timer-well {
+    grid-column: 2;
+    grid-row: 2;
+    flex: none;
+    min-height: 124px;
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    font-size: 32px;
+  }
+  html[data-theme="soft"] .col-right .reset {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-self: end;
+    margin: 0;
+  }
+
+  html[data-theme="instrument"] .stage {
+    grid-template-rows: 50px minmax(0, 1fr);
+    grid-template-columns: 246px minmax(0, 1fr) 228px;
+  }
+  html[data-theme="instrument"] .col-left { gap: 4px; }
+  html[data-theme="instrument"] .card-other { margin-top: 14px; }
+  html[data-theme="instrument"] .col-center {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 70px;
+    gap: 8px;
+    padding: 8px;
+  }
+  html[data-theme="instrument"] .workspace {
+    display: contents;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  html[data-theme="instrument"] .syringes {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  html[data-theme="instrument"] .syr-63 { width: 48px; flex-basis: 42%; }
+  html[data-theme="instrument"] .syr-110 { width: 76px; flex-basis: 68%; }
+  html[data-theme="instrument"] .phases {
+    grid-column: 2;
+    grid-row: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  html[data-theme="instrument"] .actions {
+    grid-column: 2;
+    grid-row: 2;
+    height: auto;
+  }
+  html[data-theme="instrument"] .col-right .timer-well {
+    order: 1;
+    flex: none;
+    height: 132px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  html[data-theme="instrument"] .col-right .readout { order: 2; }
+  html[data-theme="instrument"] .col-right .reset { order: 3; margin-top: auto; }
+
+  @media (max-width: 1500px) {
+    body:not(.frame) .fit { overflow: auto; justify-content: start; }
+  }
+</style>
+</head>
+<body>
+  <div class="chrome">
+    <div class="chrome-note">
+      <div class="chrome-kicker">样式切换 · 演示外框</div>
+      <div class="chrome-sub">不属于注射界面。画面是静态的，下面的控件不会动作。</div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="视觉风格">
+      <button type="button" role="tab" data-theme="clinical" aria-selected="true">冷临床 · Cool clinical</button>
+      <button type="button" role="tab" data-theme="soft" aria-selected="false">柔和医疗 · Soft medical</button>
+      <button type="button" role="tab" data-theme="instrument" aria-selected="false">仪表深色 · Instrument dark</button>
+    </div>
+  </div>
+
+  <div class="fit">
+    <main class="stage" id="stage">
+      <header class="top">
+        <div class="brand">Nova-C</div>
+        <div class="clock">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="2.7"></circle>
+            <path d="M12 2.7l1 2.5a6.4 6.4 0 0 1 2 .8l2.4-1.2 1.6 2.8-2 1.6a6.4 6.4 0 0 1 .1 2.3l2 1.6-1.6 2.8-2.4-1.2a6.4 6.4 0 0 1-2 .8L12 21.3l-1-2.5a6.4 6.4 0 0 1-2-.8l-2.4 1.2-1.6-2.8 2-1.6a6.4 6.4 0 0 1-.1-2.3l-2-1.6 1.6-2.8 2.4 1.2a6.4 6.4 0 0 1 2-.8L12 2.7z"></path>
+          </svg>
+          <time datetime="2025-05-17T08:01">2025.05.17 08:01</time>
+        </div>
+      </header>
+
+      <section class="col col-left" aria-label="信息">
+        <div class="icon-row">
+          <button class="icon-btn" type="button" aria-label="方案">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="3" width="11" height="16" rx="1.2"></rect>
+              <path d="M8 8h6M8 11.5h4"></path>
+              <circle cx="16.2" cy="16.2" r="3.6"></circle>
+              <path d="M16.2 14.4v2l1.3.8"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="设置">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="2.7"></circle>
+              <path d="M12 2.7l1 2.5a6.4 6.4 0 0 1 2 .8l2.4-1.2 1.6 2.8-2 1.6a6.4 6.4 0 0 1 .1 2.3l2 1.6-1.6 2.8-2.4-1.2a6.4 6.4 0 0 1-2 .8L12 21.3l-1-2.5a6.4 6.4 0 0 1-2-.8l-2.4 1.2-1.6-2.8 2-1.6a6.4 6.4 0 0 1-.1-2.3l-2-1.6 1.6-2.8 2.4 1.2a6.4 6.4 0 0 1 2-.8L12 2.7z"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="患者">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="14" cy="8" r="3"></circle>
+              <path d="M6.5 19.2c.7-3.3 3-5.2 6.2-5.2 1.4 0 2.6.3 3.6.9"></path>
+              <path d="M16.2 11.2c1.6.5 2.6 1.6 3 3"></path>
+            </svg>
+          </button>
+        </div>
+
+        <article class="card card-patient">
+          <h2>患者信息</h2>
+          <div class="fields">
+            <div class="mark" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="3.1"></circle>
+                <path d="M5.2 19.2c.9-3.5 3.3-5.3 6.8-5.3s5.9 1.8 6.8 5.3"></path>
+              </svg>
+            </div>
+            <dl>
+              <div><dt>姓名:</dt><dd>--</dd></div>
+              <div><dt>患者编号:</dt><dd>--</dd></div>
+              <div><dt>检查部位:</dt><dd>--</dd></div>
+              <div><dt>体重:</dt><dd>--</dd></div>
+              <div><dt>检查编号:</dt><dd>--</dd></div>
+            </dl>
+          </div>
+        </article>
+
+        <article class="card card-drug">
+          <h2>药剂信息</h2>
+          <div class="fields">
+            <div class="mark" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M10 8V4.5h4V8"></path>
+                <rect x="8.5" y="8" width="7" height="12" rx="1.4"></rect>
+                <path d="M8.5 13.5h7"></path>
+              </svg>
+            </div>
+            <dl>
+              <div><dt>名称:</dt><dd>--</dd></div>
+              <div><dt>浓度:</dt><dd>--</dd></div>
+            </dl>
+          </div>
+        </article>
+
+        <article class="card card-other">
+          <h2>其他信息</h2>
+          <div class="fields">
+            <div class="mark" aria-hidden="true">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M7 19.5 14.2 10"></path>
+                <path d="M14.2 10l1.6-2.2 3.2 1.3-1.7 2.3z"></path>
+                <circle class="fill" cx="8" cy="18.2" r="1.15"></circle>
+              </svg>
+            </div>
+            <dl>
+              <div><dt>留置针尺寸</dt><dd>--</dd></div>
+              <div><dt>穿刺部位:</dt><dd>--</dd></div>
+            </dl>
+          </div>
+        </article>
+      </section>
+
+      <section class="col col-center">
+        <div class="workspace">
+          <div class="syringes">
+            <div class="more">MORE</div>
+              <div class="barrel barrel-a">
+                <div class="tag tag-cm">CM</div>
+                <div class="cap">63mL</div>
+                <div class="syr syr-63">
+                  <div class="flange"></div>
+                  <div class="neck"></div>
+                  <div class="body"></div>
+                  <div class="shoulder"></div>
+                  <div class="nozzle"></div>
+                  <div class="tip"></div>
+                  <div class="vol"><b>A</b><span>0mL</span></div>
+                </div>
+              </div>
+              <div class="barrel barrel-b">
+                <div class="tag tag-nacl">NaCl</div>
+                <div class="cap">110mL</div>
+                <div class="syr syr-110">
+                  <div class="flange"></div>
+                  <div class="neck"></div>
+                  <div class="body"></div>
+                  <div class="shoulder"></div>
+                  <div class="nozzle"></div>
+                  <div class="tip"></div>
+                  <div class="vol"><b>B</b><span>0mL</span></div>
+                </div>
+              </div>
+            <div class="totals"><span>A:0.0mL</span><span>B:0.0mL</span></div>
+          </div>
+
+          <div class="phases">
+            <div class="phase-head">
+              <span>阶段</span>
+              <span>速度</span>
+              <span>剂量</span>
+              <span>时间</span>
+            </div>
+            <div class="phase-row">
+              <button class="ta" type="button">TA</button>
+              <div class="cell">0.0mL/s</div>
+              <div class="cell">0mL</div>
+              <div class="cell">0s</div>
+              <button class="del" type="button" aria-label="删除">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 7h14"></path>
+                  <path d="M9 7V5h6v2"></path>
+                  <path d="M7.5 7l.8 13h7.4l.8-13"></path>
+                  <path d="M10 11v6M14 11v6"></path>
+                </svg>
+              </button>
+            </div>
+            <button class="add" type="button">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8"></circle>
+                <path d="M12 8v8M8 12h8"></path>
+              </svg>
+              添加新阶段
+            </button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="act act-ready" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="8"></circle>
+              <path d="M8.2 12.2l2.5 2.5 5-5.2"></path>
+            </svg>
+            <span>备妥</span>
+          </button>
+          <button class="act act-run" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 6v12"></path>
+              <path d="M16 6v12"></path>
+            </svg>
+            <span>注射</span>
+          </button>
+          <button class="act act-stop" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect class="fill" x="7" y="7" width="10" height="10" rx="1"></rect>
+            </svg>
+            <span>停止</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="col col-right" aria-label="压力与计时">
+        <div class="icon-row">
+          <button class="icon-btn" type="button" aria-label="导出">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 4v9"></path>
+              <path d="M8.2 7.6 12 4l3.8 3.6"></path>
+              <path d="M5 13.5V19.5h14V13.5"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" type="button" aria-label="保存">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h9.2L19.5 8v12.5H6z"></path>
+              <path d="M8.5 3.5v5.5h7"></path>
+              <path d="M8.5 20.5v-6h7v6"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="readout">
+          <div class="k">压力限制</div>
+          <div class="v">150psi</div>
+        </div>
+
+        <div class="timer-well">00:00</div>
+
+        <button class="reset" type="button">重置</button>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var themes = ["clinical", "soft", "instrument"];
+      var params = new URLSearchParams(location.search);
+      var theme = params.get("theme");
+      if (themes.indexOf(theme) < 0) theme = "clinical";
+      document.documentElement.setAttribute("data-theme", theme);
+      if (params.get("frame") === "1") document.body.classList.add("frame");
+
+      var tabs = document.querySelectorAll(".tabs [data-theme]");
+      function mark(next) {
+        tabs.forEach(function (tab) {
+          tab.setAttribute("aria-selected", tab.getAttribute("data-theme") === next ? "true" : "false");
+        });
+      }
+      mark(theme);
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          var next = tab.getAttribute("data-theme");
+          document.documentElement.setAttribute("data-theme", next);
+          mark(next);
+          var url = new URL(location.href);
+          url.searchParams.set("theme", next);
+          url.searchParams.delete("frame");
+          history.replaceState(null, "", url);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

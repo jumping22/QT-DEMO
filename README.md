@@ -54,3 +54,13 @@ make
 ./smooth --self-test
 ./smooth --csv samples.txt
 ```
+
+## Nova-C 界面样式演示
+
+`nova-c-ui/index.html` 是同一套高压注射控制界面的三种视觉风格。控件和中文标签相同，间距、针筒和阶段表的比例、压力与计时的位置略有不同。CM 为 63mL 针筒，NaCl 为 110mL 针筒。静态画面，不连接设备，也不改动上面的滤波代码。本机没有 Qt，所以用浏览器打开：
+
+```bash
+python3 -m http.server -d nova-c-ui 8000
+```
+
+然后访问 `http://127.0.0.1:8000/`。页面上方的样式条是演示外框，不属于产品界面。也可以直接打开某一风格：`?theme=clinical`、`?theme=soft`、`?theme=instrument`。
